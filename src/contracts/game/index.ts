@@ -1,5 +1,6 @@
 export * from "./common";
 export * from "./decision";
+export * from "./event";
 export * from "./fact";
 export * from "./intent";
 export * from "./outcome";
