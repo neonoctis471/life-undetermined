@@ -1230,7 +1230,7 @@ git commit -m "feat: add API and server environment contracts"
 - Consumes: all npm scripts and tests from Tasks 1–5.
 - Produces: a GitHub Actions quality gate and recorded completion evidence.
 
-- [ ] **Step 1: Add GitHub Actions**
+- [x] **Step 1: Add GitHub Actions**
 
 Create `.github/workflows/ci.yml`:
 
@@ -1262,7 +1262,7 @@ jobs:
       - run: npm run build
 ```
 
-- [ ] **Step 2: Run the complete local acceptance suite**
+- [x] **Step 2: Run the complete local acceptance suite**
 
 Run:
 
@@ -1282,7 +1282,7 @@ Expected:
 - Next.js production build exits 0.
 - No AI, Zhihu, database, Supabase, or Vercel network call is made by the tests.
 
-- [ ] **Step 3: Check secrets and repository scope**
+- [x] **Step 3: Check secrets and repository scope**
 
 Run:
 
@@ -1300,18 +1300,18 @@ Expected:
 - `git diff --check` prints nothing.
 - Status contains only intended first-batch changes.
 
-- [ ] **Step 4: Mark completed checkboxes and record verification commands in this plan**
+- [x] **Step 4: Mark completed checkboxes and record verification commands in this plan**
 
 Use `apply_patch` to change the completed task checkboxes from `- [ ]` to `- [x]` and append a short verification record containing the exact commands and their exit status. Do not paste secrets or full environment output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add .github/workflows/ci.yml docs/superpowers/plans/2026-09-09-backend-foundation.md
 git commit -m "ci: enforce backend foundation quality"
 ```
 
-- [ ] **Step 6: Verify the committed state**
+- [x] **Step 6: Verify the committed state**
 
 Run:
 
@@ -1321,3 +1321,18 @@ git log --oneline -7
 ```
 
 Expected: working tree is clean and the six task commits are visible.
+
+#### Task 6 verification record
+
+- `npm run lint` — exit 0.
+- `npm run typecheck` — exit 0.
+- `npm run test:coverage` — exit 1 in the restricted sandbox because esbuild could not traverse the worktree's parent directories; rerun with host filesystem access — exit 0, 5 files and 22 tests passed, coverage generated under ignored `coverage/`.
+- `npm run build` — exit 0; Next.js production build completed and listed `/api/v1/health`. Next.js added generated entries to `tsconfig.json` and `next-env.d.ts`; only those generated edits were restored.
+- `git check-ignore .secrets/zhihu-access-secret.dpapi .secrets/openai-next-api-key.dpapi` — exit 0; both paths ignored.
+- `rg -l --glob '!.secrets/**' --glob '!*.dpapi' '(?i)sk-[a-z0-9]{20,}|\b[a-f0-9]{40}\b' .` — exit 1; no matches.
+- `git diff --check` — exit 0.
+- `git status --short` — exit 0; only `.github/workflows/ci.yml` was untracked before staging.
+- `git add .github/workflows/ci.yml docs/superpowers/plans/2026-09-09-backend-foundation.md` — exit 0.
+- `git commit -m "ci: add backend foundation quality gate"` — exit 0; created commit `a70ea15`.
+- `git status --short` — exit 0; no output after commit.
+- `git log --oneline -7` — exit 0; the Task 6 commit and six prior task commits were visible.
