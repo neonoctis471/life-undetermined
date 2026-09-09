@@ -10,3 +10,6 @@ dist/
 .next/
 coverage/
 .worktrees/
+.superpowers/
+*.tsbuildinfo
+.vercel/
