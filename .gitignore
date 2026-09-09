@@ -1,0 +1,11 @@
+# Local credentials and developer-only environment files
+.secrets/
+.env
+.env.*
+!.env.example
+
+# Common full-stack build output
+node_modules/
+dist/
+.next/
+coverage/
