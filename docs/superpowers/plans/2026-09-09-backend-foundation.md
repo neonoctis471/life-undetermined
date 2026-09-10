@@ -1335,14 +1335,16 @@ Post-review amendments in `4e51146` supersede the affected illustrative snippets
 - Parsed server environments strip every non-allowlisted key and reject blank secrets.
 - Preset decisions forbid `customAction`; custom-placeholder decisions require it.
 - Vitest uses explicit path aliases; `vite-tsconfig-paths` and its incompatible `tsconfck` dependency were removed.
+- The final test toolchain uses Vitest/coverage `4.1.11` with Vite `6.4.3`; all support Node 20.9 and clear the npm audit findings present in the earlier compatible stack.
 - The event suite covers all ten authoritative variants and their key rejection boundaries.
 
 - `npm run lint` — exit 0.
 - `npm run typecheck` — exit 0.
 - `npm run test:run` — exit 0; 5 files and 46 tests passed.
-- `npm run test:coverage` — exit 0; 5 files and 46 tests passed, with 98.12% overall statement/line coverage and 100% coverage for contract, environment, API, and health-route source files.
+- `npm run test:coverage` — exit 0 under Vitest 4.1.11; 5 files and 46 tests passed with 100% statements, branches, functions, and lines.
 - `npm run build` — exit 0; Next.js production build completed and listed `/api/v1/health`. Next.js added generated entries to `tsconfig.json` and `next-env.d.ts`; only those generated edits were restored.
 - `npm ls typescript vite-tsconfig-paths tsconfck --all` — exit 0; only the valid `typescript@6.0.2` graph remains.
+- `npm audit --json` — exit 0; 0 production or development dependency vulnerabilities.
 - `git check-ignore .secrets/zhihu-access-secret.dpapi .secrets/openai-next-api-key.dpapi` — exit 0; both paths ignored.
 - `rg -l --glob '!.secrets/**' --glob '!*.dpapi' '(?i)sk-[a-z0-9]{20,}|\b[a-f0-9]{40}\b' .` — exit 1; no matches.
 - `git diff --check` — exit 0.
