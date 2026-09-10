@@ -1594,4 +1594,7 @@ Expected: working tree is clean and the contract, engine, storage, store and acc
 - `rg -l --glob '!.secrets/**' --glob '!*.dpapi' '(?i)sk-[a-z0-9]{20,}|\\b[a-f0-9]{40}\\b' .` — exit 1; no matching project files were found.
 - `rg -n 'localStorage|StorageLike|GAME_STORAGE_KEY' src/game-state src/test` — exit 0; storage access is limited to `src/game-state/storage.ts` through `StorageLike` and its tests.
 - `git diff --check` — exit 0; no whitespace errors after restoring build-generated configuration edits.
-- `git status --short` — exit 0; before the acceptance commit, only the completed plan and task acceptance report are intended documentation changes; a final clean status is recorded after committing.
+- Acceptance commit: `7176bd4 docs: record lightweight game state completion`.
+- `git status --short` immediately after acceptance commit `7176bd4` — exit 0; no output.
+- `git diff HEAD^ --check` immediately after acceptance commit `7176bd4` — exit 0; no output.
+- `git log --oneline -7` immediately after acceptance commit included `7176bd4`, `0d35408`, `70164c5`, `0af9ea6`, `18b2d13`, `417ab9c`, and `608fbdf` (acceptance plus Tasks 1–4 commits).
