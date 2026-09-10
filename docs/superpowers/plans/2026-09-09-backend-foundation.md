@@ -70,7 +70,7 @@ vitest.config.mts                             Vitest configuration
 - Consumes: Node.js 20.9 or newer.
 - Produces: `GET(): Promise<Response>` from the health route and npm scripts `lint`, `typecheck`, `test`, `test:run`, `test:coverage`, and `build`.
 
-- [ ] **Step 1: Create the package and tool configuration**
+- [x] **Step 1: Create the package and tool configuration**
 
 Create `package.json`:
 
@@ -182,7 +182,7 @@ Append these generated paths to `.gitignore`:
 .vercel/
 ```
 
-- [ ] **Step 2: Install exact dependencies into the lockfile**
+- [x] **Step 2: Install exact dependencies into the lockfile**
 
 Run:
 
@@ -193,7 +193,7 @@ npm install --save-dev typescript@latest @types/node@latest @types/react@latest 
 
 Expected: exit code 0 and a new `package-lock.json`.
 
-- [ ] **Step 3: Write the failing health-route test**
+- [x] **Step 3: Write the failing health-route test**
 
 Create `src/test/health-route.test.ts`:
 
@@ -216,13 +216,13 @@ describe("GET /api/v1/health", () => {
 });
 ```
 
-- [ ] **Step 4: Run the test to verify it fails**
+- [x] **Step 4: Run the test to verify it fails**
 
 Run: `npm run test:run -- src/test/health-route.test.ts`
 
 Expected: FAIL because `@/app/api/v1/health/route` does not exist.
 
-- [ ] **Step 5: Implement the minimal health route**
+- [x] **Step 5: Implement the minimal health route**
 
 Create `src/app/api/v1/health/route.ts`:
 
@@ -235,7 +235,7 @@ export async function GET(): Promise<Response> {
 }
 ```
 
-- [ ] **Step 6: Verify the task**
+- [x] **Step 6: Verify the task**
 
 Run:
 
@@ -248,7 +248,7 @@ npm run build
 
 Expected: all commands exit 0; Vitest reports 1 passing test.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add package.json package-lock.json tsconfig.json next-env.d.ts next.config.ts eslint.config.mjs vitest.config.mts .gitignore src/app/api/v1/health/route.ts src/test/health-route.test.ts
@@ -265,7 +265,7 @@ git commit -m "chore: scaffold backend foundation"
 - Consumes: Zod.
 - Produces: `IdSchema`, `TimestampSchema`, `ShortTextSchema`, `LongTextSchema`, `ContentProvenanceSchema`, `CausalReasonSchema`, `GamePhaseSchema`, `ChapterSchema`, and inferred TypeScript types.
 
-- [ ] **Step 1: Write the failing shared-contract tests**
+- [x] **Step 1: Write the failing shared-contract tests**
 
 Create `src/test/common-contracts.test.ts`:
 
@@ -297,13 +297,13 @@ describe("shared game contracts", () => {
 });
 ```
 
-- [ ] **Step 2: Verify failure**
+- [x] **Step 2: Verify failure**
 
 Run: `npm run test:run -- src/test/common-contracts.test.ts`
 
 Expected: FAIL because the common contract module does not exist.
 
-- [ ] **Step 3: Implement shared primitives**
+- [x] **Step 3: Implement shared primitives**
 
 Create `src/contracts/game/common.ts`:
 
@@ -356,7 +356,7 @@ export type GamePhase = z.infer<typeof GamePhaseSchema>;
 export type Chapter = z.infer<typeof ChapterSchema>;
 ```
 
-- [ ] **Step 4: Verify the task**
+- [x] **Step 4: Verify the task**
 
 Run:
 
@@ -368,7 +368,7 @@ npm run lint
 
 Expected: all commands exit 0; Vitest reports 2 passing tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/contracts/game/common.ts src/test/common-contracts.test.ts
@@ -391,7 +391,7 @@ git commit -m "feat: define shared game contract primitives"
 - Consumes: shared schemas from Task 2.
 - Produces: `IntentSchema`, `FactSchema`, `FactProposalSchema`, `SituationSchema`, `DecisionSchema`, `OutcomeSchema`, `SnapshotSchema`, and their inferred types.
 
-- [ ] **Step 1: Write failing tests for the six state categories**
+- [x] **Step 1: Write failing tests for the six state categories**
 
 Create `src/test/state-contracts.test.ts` with one valid fixture per category and these invariant assertions:
 
@@ -562,13 +562,13 @@ describe("six game-state schemas", () => {
 });
 ```
 
-- [ ] **Step 2: Verify failure**
+- [x] **Step 2: Verify failure**
 
 Run: `npm run test:run -- src/test/state-contracts.test.ts`
 
 Expected: FAIL because `@/contracts/game` does not exist.
 
-- [ ] **Step 3: Implement the six schemas**
+- [x] **Step 3: Implement the six schemas**
 
 Create the following files exactly:
 
@@ -787,7 +787,7 @@ export * from "./situation";
 export * from "./snapshot";
 ```
 
-- [ ] **Step 4: Verify the task**
+- [x] **Step 4: Verify the task**
 
 Run:
 
@@ -799,7 +799,7 @@ npm run lint
 
 Expected: all commands exit 0; Vitest reports 6 passing tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/contracts/game src/test/state-contracts.test.ts
@@ -817,7 +817,7 @@ git commit -m "feat: define six game state contracts"
 - Consumes: all Task 3 state schemas.
 - Produces: `GameEventSchema`, `GameEventTypeSchema`, `GameEvent`, and `GameEventType`.
 
-- [ ] **Step 1: Write the failing event tests**
+- [x] **Step 1: Write the failing event tests**
 
 Create `src/test/event-contracts.test.ts`:
 
@@ -860,13 +860,13 @@ describe("authoritative event contract", () => {
 });
 ```
 
-- [ ] **Step 2: Verify failure**
+- [x] **Step 2: Verify failure**
 
 Run: `npm run test:run -- src/test/event-contracts.test.ts`
 
 Expected: FAIL because `GameEventSchema` is not exported.
 
-- [ ] **Step 3: Implement the discriminated event union**
+- [x] **Step 3: Implement the discriminated event union**
 
 Create `src/contracts/game/event.ts` with a strict common envelope and one schema for each event type from the design:
 
@@ -945,7 +945,7 @@ Add to `src/contracts/game/index.ts`:
 export * from "./event";
 ```
 
-- [ ] **Step 4: Verify the task**
+- [x] **Step 4: Verify the task**
 
 Run:
 
@@ -957,7 +957,7 @@ npm run lint
 
 Expected: all commands exit 0; Vitest reports 2 passing tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/contracts/game/event.ts src/contracts/game/index.ts src/test/event-contracts.test.ts
@@ -977,7 +977,7 @@ git commit -m "feat: define authoritative game events"
 - Consumes: Zod and `GamePhaseSchema`.
 - Produces: `ApiMetaSchema`, `ApiErrorSchema`, `successResponseSchema(dataSchema)`, `getAiEnvironment(source)`, and `getZhihuEnvironment(source)`.
 
-- [ ] **Step 1: Write failing API and environment tests**
+- [x] **Step 1: Write failing API and environment tests**
 
 Create `src/test/api-env-contracts.test.ts`:
 
@@ -1049,13 +1049,13 @@ describe("server-only environment contracts", () => {
 });
 ```
 
-- [ ] **Step 2: Verify failure**
+- [x] **Step 2: Verify failure**
 
 Run: `npm run test:run -- src/test/api-env-contracts.test.ts`
 
 Expected: FAIL because the API and environment modules do not exist.
 
-- [ ] **Step 3: Implement the contracts**
+- [x] **Step 3: Implement the contracts**
 
 Create `src/contracts/api.ts`:
 
@@ -1201,7 +1201,7 @@ describe("GET /api/v1/health", () => {
 });
 ```
 
-- [ ] **Step 4: Verify the task**
+- [x] **Step 4: Verify the task**
 
 Run:
 
@@ -1213,7 +1213,7 @@ npm run lint
 
 Expected: all commands exit 0; both test files pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/contracts/api.ts src/config/server-env.ts src/app/api/v1/health/route.ts src/test/api-env-contracts.test.ts src/test/health-route.test.ts
@@ -1248,12 +1248,15 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      matrix:
+        node-version: [20.9.0, 24]
 
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
       - run: npm run lint
@@ -1324,15 +1327,25 @@ Expected: working tree is clean and the six task commits are visible.
 
 #### Task 6 verification record
 
+Post-review amendments in `4e51146` supersede the affected illustrative snippets above:
+
+- Situations require at least one triggering Fact and exactly one correctly titled `MOMENTUM` plus one `UNEXPECTED` possibility.
+- `OUTCOME_RESOLVED` accepts only `ACCEPTED` or `FALLBACK` outcomes; proposal-level outcomes may still be pending or rejected.
+- `Intent.rawText` preserves the player's exact text while rejecting blank input.
+- Parsed server environments strip every non-allowlisted key and reject blank secrets.
+- Preset decisions forbid `customAction`; custom-placeholder decisions require it.
+- Vitest uses explicit path aliases; `vite-tsconfig-paths` and its incompatible `tsconfck` dependency were removed.
+- The event suite covers all ten authoritative variants and their key rejection boundaries.
+
 - `npm run lint` — exit 0.
 - `npm run typecheck` — exit 0.
-- `npm run test:coverage` — exit 1 in the restricted sandbox because esbuild could not traverse the worktree's parent directories; rerun with host filesystem access — exit 0, 5 files and 22 tests passed, coverage generated under ignored `coverage/`.
+- `npm run test:run` — exit 0; 5 files and 46 tests passed.
+- `npm run test:coverage` — exit 0; 5 files and 46 tests passed, with 98.12% overall statement/line coverage and 100% coverage for contract, environment, API, and health-route source files.
 - `npm run build` — exit 0; Next.js production build completed and listed `/api/v1/health`. Next.js added generated entries to `tsconfig.json` and `next-env.d.ts`; only those generated edits were restored.
+- `npm ls typescript vite-tsconfig-paths tsconfck --all` — exit 0; only the valid `typescript@6.0.2` graph remains.
 - `git check-ignore .secrets/zhihu-access-secret.dpapi .secrets/openai-next-api-key.dpapi` — exit 0; both paths ignored.
 - `rg -l --glob '!.secrets/**' --glob '!*.dpapi' '(?i)sk-[a-z0-9]{20,}|\b[a-f0-9]{40}\b' .` — exit 1; no matches.
 - `git diff --check` — exit 0.
-- `git status --short` — exit 0; only `.github/workflows/ci.yml` was untracked before staging.
-- `git add .github/workflows/ci.yml docs/superpowers/plans/2026-09-09-backend-foundation.md` — exit 0.
-- `git commit -m "ci: add backend foundation quality gate"` — exit 0; created commit `a70ea15`.
-- `git status --short` — exit 0; no output after commit.
-- `git log --oneline -7` — exit 0; the Task 6 commit and six prior task commits were visible.
+- Reviewed implementation range: `0794d44..4e51146`.
+- Final read-only review — Critical: 0, Important: 0, Minor: 0; verdict: ready to merge.
+- Node `20.9.0` and `24` are both configured in the CI matrix; the local host verification used Node `24.14.1`.
