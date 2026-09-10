@@ -54,7 +54,7 @@ Existing `src/contracts/game/*` remains the source for Intent, Fact, Situation, 
 - Consumes: `IntentSchema`, `FactSchema`, `SituationSchema`, `DecisionSchema`, `ResolvedOutcomeSchema`, `SnapshotSchema`, `GamePhaseSchema`, `IdSchema`, `ShortTextSchema`, `LongTextSchema`, `TimestampSchema`.
 - Produces: `GAME_STATE_SCHEMA_VERSION`, `MAX_MAIN_SITUATIONS`, `PlayedSituationSchema`, `LifePathSchema`, `LifeComparisonSchema`, `GameStateSchema` and their inferred TypeScript types.
 
-- [ ] **Step 1: Change the Situation contract test to express the first-chapter exception**
+- [x] **Step 1: Change the Situation contract test to express the first-chapter exception**
 
 Replace the existing `requires between one and sixteen causal trigger facts` test in `src/test/state-contracts.test.ts` with:
 
@@ -107,7 +107,7 @@ it("allows Intent to trigger DAY_8 but still caps causal trigger facts at sixtee
 });
 ```
 
-- [ ] **Step 2: Run the changed contract test and verify the new valid case fails**
+- [x] **Step 2: Run the changed contract test and verify the new valid case fails**
 
 Run:
 
@@ -117,7 +117,7 @@ npm run test:run -- src/test/state-contracts.test.ts
 
 Expected: FAIL because `SituationSchema` still requires at least one trigger Fact.
 
-- [ ] **Step 3: Allow zero structural trigger IDs in the base Situation schema**
+- [x] **Step 3: Allow zero structural trigger IDs in the base Situation schema**
 
 In `src/contracts/game/situation.ts`, change only the trigger array declaration to:
 
@@ -127,7 +127,7 @@ triggerFactIds: z.array(IdSchema).max(16),
 
 The semantic rule for later chapters belongs in the Game State Engine because it depends on chapter and current Facts.
 
-- [ ] **Step 4: Add failing lightweight GameState schema tests**
+- [x] **Step 4: Add failing lightweight GameState schema tests**
 
 Create `src/test/game-state-contracts.test.ts`:
 
@@ -238,7 +238,7 @@ describe("lightweight game state contracts", () => {
 });
 ```
 
-- [ ] **Step 5: Run the new test and verify the missing module failure**
+- [x] **Step 5: Run the new test and verify the missing module failure**
 
 Run:
 
@@ -248,7 +248,7 @@ npm run test:run -- src/test/game-state-contracts.test.ts
 
 Expected: FAIL because `@/game-state/contracts` does not exist.
 
-- [ ] **Step 6: Implement the lightweight contracts**
+- [x] **Step 6: Implement the lightweight contracts**
 
 Create `src/game-state/contracts.ts`:
 
@@ -337,7 +337,7 @@ export type LifeComparison = z.infer<typeof LifeComparisonSchema>;
 export type GameState = z.infer<typeof GameStateSchema>;
 ```
 
-- [ ] **Step 7: Verify contracts and commit**
+- [x] **Step 7: Verify contracts and commit**
 
 Run:
 
@@ -366,7 +366,7 @@ git commit -m "feat: add lightweight game state contracts"
 - Consumes: `GameState`, `Intent`, `Situation`, `Decision`, `ResolvedOutcome`, `Snapshot`, `LifePath`, `LifeComparison`.
 - Produces: `GameStateError`, `GameStateErrorCode`, `EngineDependencies`, `GameAction`, `createInitialGameState(deps)` and `transitionGameState(state, action, deps)`.
 
-- [ ] **Step 1: Write failing transition tests**
+- [x] **Step 1: Write failing transition tests**
 
 Create `src/test/game-state-engine.test.ts` with deterministic ID and time factories and the following cases:
 
@@ -543,7 +543,7 @@ describe("lightweight game state engine", () => {
 });
 ```
 
-- [ ] **Step 2: Run the engine test and verify missing-module failures**
+- [x] **Step 2: Run the engine test and verify missing-module failures**
 
 Run:
 
@@ -553,7 +553,7 @@ npm run test:run -- src/test/game-state-engine.test.ts
 
 Expected: FAIL because `@/game-state/errors` and `@/game-state/engine` do not exist.
 
-- [ ] **Step 3: Add stable state error codes**
+- [x] **Step 3: Add stable state error codes**
 
 Create `src/game-state/errors.ts`:
 
@@ -583,7 +583,7 @@ export class GameStateError extends Error {
 }
 ```
 
-- [ ] **Step 4: Implement the pure engine and complete the three-loop/final-stage tests**
+- [x] **Step 4: Implement the pure engine and complete the three-loop/final-stage tests**
 
 Create `src/game-state/engine.ts`. Define these exact public action variants:
 
@@ -1047,7 +1047,7 @@ function makeStateAtDecision() {
 }
 ```
 
-- [ ] **Step 5: Run engine tests and commit**
+- [x] **Step 5: Run engine tests and commit**
 
 Run:
 
@@ -1075,7 +1075,7 @@ git commit -m "feat: add deterministic game state engine"
 - Consumes: `GameState`, `GameStateSchema`.
 - Produces: `GAME_STORAGE_KEY`, `MAX_GAME_STATE_BYTES`, `StorageLike`, `GameStorage`, `LoadGameResult`, `GameStorageError`, `createGameStorage(storage)`.
 
-- [ ] **Step 1: Write failing persistence tests**
+- [x] **Step 1: Write failing persistence tests**
 
 Create `src/test/game-state-storage.test.ts` using this in-memory storage:
 
@@ -1154,7 +1154,7 @@ describe("game localStorage adapter", () => {
 });
 ```
 
-- [ ] **Step 2: Run the storage test and verify the missing-module failure**
+- [x] **Step 2: Run the storage test and verify the missing-module failure**
 
 Run:
 
@@ -1164,7 +1164,7 @@ npm run test:run -- src/test/game-state-storage.test.ts
 
 Expected: FAIL because `@/game-state/storage` does not exist.
 
-- [ ] **Step 3: Implement the storage adapter**
+- [x] **Step 3: Implement the storage adapter**
 
 Create `src/game-state/storage.ts`:
 
@@ -1283,7 +1283,7 @@ it("maps browser read failures without deleting unrelated data", () => {
 });
 ```
 
-- [ ] **Step 4: Verify storage and commit**
+- [x] **Step 4: Verify storage and commit**
 
 Run:
 
@@ -1312,7 +1312,7 @@ git commit -m "feat: persist validated game state locally"
 - Consumes: `GameStorage`, `EngineDependencies`, `GameAction`, `GameState`, `createInitialGameState`, `transitionGameState`.
 - Produces: `GameStateStore`, `RestoreStatus`, `createGameStateStore(options)` and the stable public exports from `src/game-state/index.ts`.
 
-- [ ] **Step 1: Write failing store integration tests**
+- [x] **Step 1: Write failing store integration tests**
 
 Create `src/test/game-state-store.test.ts`:
 
@@ -1408,7 +1408,7 @@ describe("persistent game state store", () => {
 });
 ```
 
-- [ ] **Step 2: Run the store test and verify the missing-module failure**
+- [x] **Step 2: Run the store test and verify the missing-module failure**
 
 Run:
 
@@ -1418,7 +1418,7 @@ npm run test:run -- src/test/game-state-store.test.ts
 
 Expected: FAIL because `@/game-state/store` does not exist.
 
-- [ ] **Step 3: Implement the store**
+- [x] **Step 3: Implement the store**
 
 Create `src/game-state/store.ts`:
 
@@ -1484,7 +1484,7 @@ export function createGameStateStore(options: {
 
 Important atomicity rule: assign `state = next` only after `storage.save(next)` succeeds. Add a test whose `save` throws and assert that `getState()` still returns the pre-dispatch state and listeners were not notified.
 
-- [ ] **Step 4: Export the supported public surface**
+- [x] **Step 4: Export the supported public surface**
 
 Create `src/game-state/index.ts`:
 
@@ -1496,7 +1496,7 @@ export * from "./storage";
 export * from "./store";
 ```
 
-- [ ] **Step 5: Verify store integration and commit**
+- [x] **Step 5: Verify store integration and commit**
 
 Run:
 
@@ -1523,7 +1523,7 @@ git commit -m "feat: add persistent game state store"
 - Consumes: all contracts, engine, storage and store behavior from Tasks 1–4.
 - Produces: verified first-batch completion evidence and a clean branch ready for the AI Adapter plan.
 
-- [ ] **Step 1: Run focused behavior tests**
+- [x] **Step 1: Run focused behavior tests**
 
 Run:
 
@@ -1533,7 +1533,7 @@ npm run test:run -- src/test/game-state-contracts.test.ts src/test/game-state-en
 
 Expected: all four focused test files pass with no network calls.
 
-- [ ] **Step 2: Run the complete quality suite**
+- [x] **Step 2: Run the complete quality suite**
 
 Run:
 
@@ -1546,7 +1546,7 @@ npm run build
 
 Expected: all commands exit 0; coverage includes `src/game-state`; Next.js production build succeeds.
 
-- [ ] **Step 3: Verify security and repository scope**
+- [x] **Step 3: Verify security and repository scope**
 
 Run:
 
@@ -1566,11 +1566,11 @@ Expected:
 - `git diff --check` prints nothing;
 - status contains only intended first-batch changes and the plan completion edit.
 
-- [ ] **Step 4: Record exact verification evidence in this plan**
+- [x] **Step 4: Record exact verification evidence in this plan**
 
 Change completed checkboxes to `- [x]` and append a `## Verification Record` section containing each command, exit code, test count and build result. Do not copy secrets, environment values, full prompts or provider responses.
 
-- [ ] **Step 5: Commit acceptance evidence**
+- [x] **Step 5: Commit acceptance evidence**
 
 Run:
 
@@ -1582,3 +1582,16 @@ git log --oneline -7
 ```
 
 Expected: working tree is clean and the contract, engine, storage, store and acceptance commits are visible.
+
+## Verification Record
+
+- `npm run test:run -- src/test/game-state-contracts.test.ts src/test/game-state-engine.test.ts src/test/game-state-storage.test.ts src/test/game-state-store.test.ts` — exit 0; 4 files and 40 tests passed.
+- `npm run lint` — exit 0; ESLint completed with no reported errors.
+- `npm run typecheck` — exit 0; TypeScript completed with no reported errors.
+- `npm run test:coverage` — exit 0; 9 files and 86 tests passed. Overall coverage: 95.31% statements, 90.08% branches, 98% functions, and 96.5% lines; `src/game-state` is included (94% statements).
+- `npm run build` — exit 0; Next.js production build compiled successfully and generated the `/_not-found` and `/api/v1/health` routes.
+- `git check-ignore .secrets/zhihu-access-secret.dpapi .secrets/openai-next-api-key.dpapi` — exit 0; both encrypted credential paths are ignored.
+- `rg -l --glob '!.secrets/**' --glob '!*.dpapi' '(?i)sk-[a-z0-9]{20,}|\\b[a-f0-9]{40}\\b' .` — exit 1; no matching project files were found.
+- `rg -n 'localStorage|StorageLike|GAME_STORAGE_KEY' src/game-state src/test` — exit 0; storage access is limited to `src/game-state/storage.ts` through `StorageLike` and its tests.
+- `git diff --check` — exit 0; no whitespace errors after restoring build-generated configuration edits.
+- `git status --short` — exit 0; before the acceptance commit, only the completed plan and task acceptance report are intended documentation changes; a final clean status is recorded after committing.
