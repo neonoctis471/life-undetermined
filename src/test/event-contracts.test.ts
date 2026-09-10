@@ -197,8 +197,15 @@ describe("authoritative event contract", () => {
     },
   );
 
+  it("allows the opening DAY_8 situation to omit causal triggers", () => {
+    expect(
+      GameEventSchema.safeParse(
+        event("SITUATION_CREATED", { ...situation(), triggerFactIds: [] }),
+      ).success,
+    ).toBe(true);
+  });
+
   it.each([
-    ["missing causal triggers", { triggerFactIds: [] }],
     [
       "duplicate possibility kinds",
       {
