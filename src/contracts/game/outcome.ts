@@ -13,4 +13,9 @@ export const OutcomeSchema = z.object({
   validation: z.enum(["PENDING", "ACCEPTED", "REJECTED", "FALLBACK"]),
 }).strict();
 
+export const ResolvedOutcomeSchema = OutcomeSchema.extend({
+  validation: z.enum(["ACCEPTED", "FALLBACK"]),
+}).strict();
+
 export type Outcome = z.infer<typeof OutcomeSchema>;
+export type ResolvedOutcome = z.infer<typeof ResolvedOutcomeSchema>;

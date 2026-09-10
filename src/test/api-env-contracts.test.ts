@@ -40,19 +40,22 @@ describe("API response contracts", () => {
 });
 
 describe("server-only environment contracts", () => {
-  it("accepts explicit AI and Zhihu server variables", () => {
+  it("accepts and trims explicit AI and Zhihu server variables", () => {
     expect(
       getAiEnvironment({
         OPENAI_BASE_URL: "https://api.example.com",
-        OPENAI_API_KEY: "test-key",
-      }).OPENAI_BASE_URL,
-    ).toBe("https://api.example.com");
+        OPENAI_API_KEY: "  test-key  ",
+      }),
+    ).toEqual({
+      OPENAI_BASE_URL: "https://api.example.com",
+      OPENAI_API_KEY: "test-key",
+    });
 
     expect(
       getZhihuEnvironment({
-        ZHIHU_ACCESS_SECRET: "test-secret",
-      }).ZHIHU_ACCESS_SECRET,
-    ).toBe("test-secret");
+        ZHIHU_ACCESS_SECRET: "  test-secret  ",
+      }),
+    ).toEqual({ ZHIHU_ACCESS_SECRET: "test-secret" });
   });
 
   it("rejects missing secrets and ignores public lookalikes", () => {
@@ -61,5 +64,37 @@ describe("server-only environment contracts", () => {
         NEXT_PUBLIC_OPENAI_API_KEY: "must-not-count",
       }),
     ).toThrow();
+  });
+
+  it("rejects whitespace-only secrets", () => {
+    expect(() =>
+      getAiEnvironment({
+        OPENAI_BASE_URL: "https://api.example.com",
+        OPENAI_API_KEY: " \n\t ",
+      }),
+    ).toThrow();
+    expect(() => getZhihuEnvironment({ ZHIHU_ACCESS_SECRET: "   " })).toThrow();
+  });
+
+  it("returns only allowlisted server keys", () => {
+    expect(
+      getAiEnvironment({
+        OPENAI_BASE_URL: "https://api.example.com",
+        OPENAI_API_KEY: "test-key",
+        PRIVATE_INTERNAL_TOKEN: "private-value",
+        NEXT_PUBLIC_OPENAI_API_KEY: "public-lookalike",
+      }),
+    ).toEqual({
+      OPENAI_BASE_URL: "https://api.example.com",
+      OPENAI_API_KEY: "test-key",
+    });
+
+    expect(
+      getZhihuEnvironment({
+        ZHIHU_ACCESS_SECRET: "test-secret",
+        PRIVATE_INTERNAL_TOKEN: "private-value",
+        NEXT_PUBLIC_ZHIHU_ACCESS_SECRET: "public-lookalike",
+      }),
+    ).toEqual({ ZHIHU_ACCESS_SECRET: "test-secret" });
   });
 });

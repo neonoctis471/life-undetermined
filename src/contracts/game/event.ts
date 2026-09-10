@@ -4,7 +4,7 @@ import { IdSchema, TimestampSchema } from "./common";
 import { DecisionSchema } from "./decision";
 import { FactSchema } from "./fact";
 import { IntentSchema } from "./intent";
-import { OutcomeSchema } from "./outcome";
+import { ResolvedOutcomeSchema } from "./outcome";
 import { SituationSchema } from "./situation";
 import { SnapshotSchema } from "./snapshot";
 
@@ -47,7 +47,7 @@ export const GameEventSchema = z.discriminatedUnion("type", [
   event(z.literal("INTENT_CONFIRMED"), IntentSchema),
   event(z.literal("SITUATION_CREATED"), SituationSchema),
   event(z.literal("DECISION_MADE"), DecisionSchema),
-  event(z.literal("OUTCOME_RESOLVED"), OutcomeSchema),
+  event(z.literal("OUTCOME_RESOLVED"), ResolvedOutcomeSchema),
   event(
     z.literal("FACTS_ADDED"),
     z
