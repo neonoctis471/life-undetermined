@@ -150,6 +150,9 @@ export function transitionGameState(
     case "APPLY_OUTCOME": {
       requireStage(state, ["DECISION_RECORDED"]);
       const outcome = parseInput(ResolvedOutcomeSchema, action.outcome, "ResolvedOutcome");
+      if (outcome.addedFacts.length === 0) {
+        throw new GameStateError("INVALID_STATE", "Outcome must add an authoritative Fact");
+      }
       const latestDecision = state.decisions.at(-1);
       if (!latestDecision || outcome.decisionId !== latestDecision.id) {
         throw new GameStateError("INVALID_DECISION_REFERENCE", "Outcome must reference the latest Decision");

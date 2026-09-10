@@ -645,6 +645,26 @@ describe("lightweight game state engine", () => {
     ).toThrowError(expect.objectContaining({ code: "INVALID_STATE" }));
   });
 
+  it("rejects an Outcome without authoritative Facts without changing state", () => {
+    const { stateAtDecision, deps } = makeStateAtDecision();
+    const before = structuredClone(stateAtDecision);
+
+    expect(() =>
+      transitionGameState(
+        stateAtDecision,
+        {
+          type: "APPLY_OUTCOME",
+          outcome: {
+            ...makeDistinctOutcome(0, stateAtDecision.decisions[0]!),
+            addedFacts: [],
+          },
+        },
+        deps,
+      ),
+    ).toThrowError(expect.objectContaining({ code: "INVALID_STATE" }));
+    expect(stateAtDecision).toEqual(before);
+  });
+
   it("does not append an invalid Outcome or partial Facts", () => {
     const { stateAtDecision, deps } = makeStateAtDecision();
     const before = structuredClone(stateAtDecision);
