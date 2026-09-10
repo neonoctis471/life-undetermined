@@ -36,6 +36,14 @@ export function createGameStorage(
   const maxBytes = options.maxBytes ?? MAX_GAME_STATE_BYTES;
   return {
     load() {
+      const discard = (reason: "INVALID_JSON" | "INVALID_SCHEMA" | "TOO_LARGE"): LoadGameResult => {
+        try {
+          storage.removeItem(GAME_STORAGE_KEY);
+        } catch {
+          // Cleanup is best-effort; the invalid value must not mask the result.
+        }
+        return { status: "discarded", reason };
+      };
       let raw: string | null;
       try {
         raw = storage.getItem(GAME_STORAGE_KEY);
@@ -44,20 +52,17 @@ export function createGameStorage(
       }
       if (raw === null) return { status: "empty" };
       if (new TextEncoder().encode(raw).byteLength > maxBytes) {
-        storage.removeItem(GAME_STORAGE_KEY);
-        return { status: "discarded", reason: "TOO_LARGE" };
+        return discard("TOO_LARGE");
       }
       let parsed: unknown;
       try {
         parsed = JSON.parse(raw);
       } catch {
-        storage.removeItem(GAME_STORAGE_KEY);
-        return { status: "discarded", reason: "INVALID_JSON" };
+        return discard("INVALID_JSON");
       }
       const result = GameStateSchema.safeParse(parsed);
       if (!result.success) {
-        storage.removeItem(GAME_STORAGE_KEY);
-        return { status: "discarded", reason: "INVALID_SCHEMA" };
+        return discard("INVALID_SCHEMA");
       }
       return { status: "restored", state: result.data };
     },
@@ -75,7 +80,11 @@ export function createGameStorage(
       }
     },
     clear() {
-      storage.removeItem(GAME_STORAGE_KEY);
+      try {
+        storage.removeItem(GAME_STORAGE_KEY);
+      } catch {
+        throw new GameStorageError("WRITE_FAILED", "unable to clear local game state");
+      }
     },
   };
 }

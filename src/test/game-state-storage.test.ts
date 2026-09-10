@@ -96,4 +96,27 @@ describe("game localStorage adapter", () => {
       expect.objectContaining({ code: "READ_FAILED" }),
     );
   });
+
+  it("returns discarded invalid JSON when cleanup fails", () => {
+    const failingCleanupStorage: StorageLike = {
+      getItem: () => "{",
+      setItem: () => undefined,
+      removeItem: () => { throw new DOMException("blocked", "SecurityError"); },
+    };
+    expect(createGameStorage(failingCleanupStorage).load()).toEqual({
+      status: "discarded",
+      reason: "INVALID_JSON",
+    });
+  });
+
+  it("maps clear cleanup failures to a stable write error", () => {
+    const failingCleanupStorage: StorageLike = {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => { throw new DOMException("blocked", "SecurityError"); },
+    };
+    expect(() => createGameStorage(failingCleanupStorage).clear()).toThrowError(
+      expect.objectContaining({ code: "WRITE_FAILED" }),
+    );
+  });
 });
