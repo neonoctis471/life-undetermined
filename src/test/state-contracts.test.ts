@@ -110,7 +110,7 @@ describe("six game-state schemas", () => {
     expect(situation.possibilities).toHaveLength(2);
   });
 
-  it("requires between one and sixteen causal trigger facts", () => {
+  it("allows Intent to trigger DAY_8 but still caps causal trigger facts at sixteen", () => {
     const baseSituation = {
       id: ids.situation,
       chapter: "DAY_8",
@@ -146,12 +146,10 @@ describe("six game-state schemas", () => {
       `${index.toString(16).padStart(8, "0")}-0000-4000-8000-000000000000`,
     );
 
+    expect(SituationSchema.safeParse({ ...baseSituation, triggerFactIds: [] }).success).toBe(true);
     expect(
       SituationSchema.safeParse({ ...baseSituation, triggerFactIds: maximumTriggerFacts }).success,
     ).toBe(true);
-    expect(
-      SituationSchema.safeParse({ ...baseSituation, triggerFactIds: [] }).success,
-    ).toBe(false);
     expect(
       SituationSchema.safeParse({
         ...baseSituation,

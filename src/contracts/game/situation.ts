@@ -37,7 +37,7 @@ export const SituationSchema = z
     id: IdSchema,
     chapter: ChapterSchema,
     timeLabel: ShortTextSchema,
-    triggerFactIds: z.array(IdSchema).min(1).max(16),
+    triggerFactIds: z.array(IdSchema).max(16),
     forbiddenFactKinds: z.array(FactKindSchema).max(10),
     tensions: z.array(ShortTextSchema).min(1).max(6),
     possibilities: z.array(PossibilitySchema).length(2),
