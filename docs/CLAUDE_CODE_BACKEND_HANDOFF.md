@@ -19,7 +19,7 @@
 
 **不要从 `master@0794d44` 继续开发，也不要重新搭建第一批。** Claude Code 应直接打开 `.worktrees/backend-foundation`，或者从 `codex/backend-foundation` 创建后续分支。
 
-如果使用本机 Claude Code，直接把工作目录设为上述 `backend-foundation` worktree。若使用 Claude Cloud，本机绝对路径和 Git worktree 对它无效：应上传从 `codex/backend-foundation` 导出的代码快照以及本文，不能只上传主目录的 `master` 版本。导出时排除 `.secrets`、`node_modules`、`.next` 和本机 Git 元数据。
+如果使用本机 Claude Code，直接把工作目录设为上述 `backend-foundation` worktree。如果使用 Claude Code on the web（`claude.ai/code`），首选做法是先把 `codex/backend-foundation` 推送到 GitHub，然后在网页中选择该仓库和该分支。若暂时没有 GitHub remote，也可以在正确 worktree 中运行 `claude --cloud "<任务说明>"`，由 Claude Code 自动打包本地 Git 仓库创建云会话。不要把主目录的旧 `master` 误交给云会话，也不要上传 `.secrets`、`node_modules` 或 `.next`。
 
 开始工作后先执行：
 
