@@ -1,11 +1,19 @@
+import { describeDecisionAction } from "@/game/labels";
+
 import type { AiOperation, AiRequest, AiResponseData } from "./contracts";
-import { buildFallbackIntentDraft, buildFallbackSituationDraft } from "./fallbacks";
-import { AiNormalizeError, normalizeIntentDraft, normalizeSituationDraft } from "./normalize";
-import { buildGenerateSituationPrompt, buildUnderstandIntentPrompt } from "./prompts";
+import { buildFallbackIntentDraft, buildFallbackOutcomeDraft, buildFallbackSituationDraft } from "./fallbacks";
+import { AiNormalizeError, normalizeIntentDraft, normalizeOutcomeDraft, normalizeSituationDraft } from "./normalize";
+import { buildGenerateSituationPrompt, buildResolveOutcomePrompt, buildUnderstandIntentPrompt } from "./prompts";
 import { AiProviderError, type AiCompletionRequest, type AiProvider } from "./provider";
 
-export const CALL_TIMEOUT_MS = 25_000;
-const TOTAL_BUDGET_MS = 45_000;
+export interface AttemptPolicy {
+  /** Upper bound for a single provider call. */
+  callTimeoutMs: number;
+  /** Shared budget for the first attempt plus the retry; must stay under the route's maxDuration. */
+  budgetMs: number;
+}
+
+export const STANDARD_POLICY: AttemptPolicy = { callTimeoutMs: 25_000, budgetMs: 45_000 };
 const MIN_ATTEMPT_MS = 5_000;
 const MAX_ATTEMPTS = 2;
 
@@ -61,6 +69,33 @@ export async function runAiOperation(request: AiRequest, deps: AiServiceDependen
             result: normalizeSituationDraft(buildFallbackSituationDraft(chapter), context, deps),
           };
     }
+    case "RESOLVE_OUTCOME": {
+      const { intent, situation, selectedPossibilityId, decision, facts } = request.input;
+      const actionLabel = describeDecisionAction(decision, situation);
+      const possibility = situation.possibilities.find(({ id }) => id === selectedPossibilityId);
+      const context = { decisionId: decision.id, facts, actionLabel };
+      const prompt = buildResolveOutcomePrompt({
+        intent,
+        situation,
+        possibility,
+        actionLabel,
+        isCustomAction: decision.selectedActionKind === "CUSTOM_PLACEHOLDER",
+        facts,
+      });
+      const generated = await generateWithRetry(
+        request.operation,
+        { tier: "FAST", ...prompt, maxTokens: 900 },
+        (raw) => normalizeOutcomeDraft(raw, { ...context, validation: "ACCEPTED" }, deps),
+        deps,
+      );
+      return generated
+        ? { operation: request.operation, generation: "AI", result: generated }
+        : {
+            operation: request.operation,
+            generation: "FALLBACK",
+            result: normalizeOutcomeDraft(buildFallbackOutcomeDraft(actionLabel), { ...context, validation: "FALLBACK" }, deps),
+          };
+    }
   }
 }
 
@@ -70,15 +105,19 @@ async function generateWithRetry<T>(
   completion: Omit<AiCompletionRequest, "timeoutMs">,
   normalize: (raw: unknown) => T,
   deps: AiServiceDependencies,
+  policy: AttemptPolicy = STANDARD_POLICY,
 ): Promise<T | null> {
   const clock = deps.clock ?? Date.now;
-  const deadline = clock() + TOTAL_BUDGET_MS;
+  const deadline = clock() + policy.budgetMs;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const remaining = deadline - clock();
     if (remaining < MIN_ATTEMPT_MS) break;
     const started = clock();
     try {
-      const content = await deps.provider.completeJson({ ...completion, timeoutMs: Math.min(CALL_TIMEOUT_MS, remaining) });
+      const content = await deps.provider.completeJson({
+        ...completion,
+        timeoutMs: Math.min(policy.callTimeoutMs, remaining),
+      });
       const result = normalize(extractJsonObject(content));
       deps.log?.({ operation, attempt, outcome: "ok", durationMs: clock() - started });
       return result;

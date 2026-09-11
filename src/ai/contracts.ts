@@ -1,10 +1,13 @@
 import { z } from "zod";
 
 import {
+  DecisionSchema,
   FactSchema,
+  IdSchema,
   IntentSchema,
   LongTextSchema,
   PossibilitySchema,
+  ResolvedOutcomeSchema,
   ShortTextSchema,
   SituationSchema,
 } from "@/contracts/game";
@@ -52,6 +55,11 @@ const looseIndexList = z.unknown().transform((value): number[] => {
   });
 }).optional();
 
+const looseArray = z.unknown().transform((value): unknown[] => {
+  if (Array.isArray(value)) return value;
+  return value === undefined || value === null ? [] : [value];
+}).optional();
+
 export const AiDraftIntentSchema = z.object({
   summary: looseText,
   goals: looseTextList,
@@ -81,8 +89,24 @@ export const AiDraftSituationSchema = z.object({
   unexpected: AiDraftBranchSchema,
 });
 
+export const AiDraftFactSchema = z.object({
+  kind: looseText,
+  statement: looseText,
+  causalReasons: looseTextList,
+  dependsOnFactIndexes: looseIndexList,
+});
+
+export const AiDraftOutcomeSchema = z.object({
+  narrative: looseText,
+  gains: looseTextList,
+  costs: looseTextList,
+  unresolvedConsequences: looseTextList,
+  facts: looseArray,
+});
+
 export type AiDraftIntent = z.infer<typeof AiDraftIntentSchema>;
 export type AiDraftSituation = z.infer<typeof AiDraftSituationSchema>;
+export type AiDraftOutcome = z.infer<typeof AiDraftOutcomeSchema>;
 
 // ---------------------------------------------------------------------------
 // Strict candidate layer (built from existing domain schemas)
@@ -138,11 +162,12 @@ export type SituationCandidate = z.infer<typeof SituationCandidateSchema>;
 // Request / response contracts for POST /api/v1/ai
 // ---------------------------------------------------------------------------
 
-export const AI_OPERATIONS = ["UNDERSTAND_INTENT", "GENERATE_SITUATION"] as const;
+export const AI_OPERATIONS = ["UNDERSTAND_INTENT", "GENERATE_SITUATION", "RESOLVE_OUTCOME"] as const;
 export const AiOperationSchema = z.enum(AI_OPERATIONS);
 export type AiOperation = z.infer<typeof AiOperationSchema>;
 
 export const MAX_RAW_TEXT_LENGTH = 1_200;
+const MAX_REQUEST_FACTS = 64;
 
 export const UnderstandIntentRequestSchema = z
   .object({
@@ -166,7 +191,7 @@ export const GenerateSituationRequestSchema = z
       .object({
         chapter: MainChapterSchema,
         intent: IntentCandidateSchema,
-        facts: z.array(FactSchema).max(64),
+        facts: z.array(FactSchema).max(MAX_REQUEST_FACTS),
         previousChoices: z.array(ShortTextSchema).max(3).default([]),
       })
       .strict()
@@ -178,13 +203,42 @@ export const GenerateSituationRequestSchema = z
   })
   .strict();
 
+export const ResolveOutcomeRequestSchema = z
+  .object({
+    operation: z.literal("RESOLVE_OUTCOME"),
+    input: z
+      .object({
+        intent: IntentCandidateSchema,
+        situation: SituationSchema,
+        selectedPossibilityId: IdSchema,
+        decision: DecisionSchema,
+        facts: z.array(FactSchema).max(MAX_REQUEST_FACTS),
+      })
+      .strict()
+      .superRefine((value, context) => {
+        if (value.decision.situationId !== value.situation.id) {
+          context.addIssue({ code: "custom", path: ["decision", "situationId"], message: "Decision must reference the Situation" });
+        }
+        const action = value.situation.availableActions.find(({ id }) => id === value.decision.selectedActionId);
+        if (!action || action.kind !== value.decision.selectedActionKind) {
+          context.addIssue({ code: "custom", path: ["decision", "selectedActionId"], message: "Decision action is not in the Situation" });
+        }
+        if (!value.situation.possibilities.some(({ id }) => id === value.selectedPossibilityId)) {
+          context.addIssue({ code: "custom", path: ["selectedPossibilityId"], message: "possibility is not in the Situation" });
+        }
+      }),
+  })
+  .strict();
+
 export const AiRequestSchema = z.discriminatedUnion("operation", [
   UnderstandIntentRequestSchema,
   GenerateSituationRequestSchema,
+  ResolveOutcomeRequestSchema,
 ]);
 export type AiRequest = z.infer<typeof AiRequestSchema>;
 export type UnderstandIntentRequest = z.infer<typeof UnderstandIntentRequestSchema>;
 export type GenerateSituationRequest = z.infer<typeof GenerateSituationRequestSchema>;
+export type ResolveOutcomeRequest = z.infer<typeof ResolveOutcomeRequestSchema>;
 
 /** Whether the content came from the model or from a conservative template. */
 export const GenerationSourceSchema = z.enum(["AI", "FALLBACK"]);
@@ -206,10 +260,20 @@ export const GenerateSituationResponseDataSchema = z
   })
   .strict();
 
+export const ResolveOutcomeResponseDataSchema = z
+  .object({
+    operation: z.literal("RESOLVE_OUTCOME"),
+    generation: GenerationSourceSchema,
+    result: ResolvedOutcomeSchema,
+  })
+  .strict();
+
 export const AiResponseDataSchema = z.discriminatedUnion("operation", [
   UnderstandIntentResponseDataSchema,
   GenerateSituationResponseDataSchema,
+  ResolveOutcomeResponseDataSchema,
 ]);
 export type AiResponseData = z.infer<typeof AiResponseDataSchema>;
 export type UnderstandIntentResponseData = z.infer<typeof UnderstandIntentResponseDataSchema>;
 export type GenerateSituationResponseData = z.infer<typeof GenerateSituationResponseDataSchema>;
+export type ResolveOutcomeResponseData = z.infer<typeof ResolveOutcomeResponseDataSchema>;

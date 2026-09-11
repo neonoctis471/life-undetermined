@@ -1,4 +1,4 @@
-import type { Fact } from "@/contracts/game";
+import type { Fact, Possibility, Situation } from "@/contracts/game";
 
 import type { IntentCandidate, MainChapter } from "./contracts";
 
@@ -76,10 +76,56 @@ export function buildGenerateSituationPrompt(input: {
   if (input.previousChoices.length > 0) {
     lines.push("", "玩家之前做过的决定：", ...input.previousChoices.map((choice) => `- ${choice}`));
   }
+  lines.push("", "已发生的事实：", ...numberedFacts(input.facts));
+  return { system, user: lines.join("\n") };
+}
+
+export function buildResolveOutcomePrompt(input: {
+  intent: IntentCandidate;
+  situation: Situation;
+  possibility: Possibility | undefined;
+  actionLabel: string;
+  isCustomAction: boolean;
+  facts: readonly Pick<Fact, "statement">[];
+}): PromptPair {
+  const system = [
+    "你是一款“毕业后五年人生”模拟游戏的结果叙述者。玩家已经做出了决定，你只描述这个决定之后具体发生了什么。你只提出候选内容，游戏程序会校验后决定是否采用。",
+    "规则：",
+    "1. 严格按照玩家选择的应对来写，不要替玩家换一种做法，也不要写玩家没做的事。",
+    "2. 结果要有收获也有代价，不写成功学，不保证成功，不评价人生，不出现分数。",
+    "3. 叙述发生在这个情境的当下和随后几天之内，不要跳到几个月以后。",
+    "4. 不要与已发生的事实矛盾，也不要改写它们；不要提及知乎或网友经历。",
+    `5. ${DATA_BOUNDARY}`,
+    "只输出一个 JSON 对象，结构如下：",
+    '{"narrative": "100-200 字，第二人称“你”，写出做了这个决定之后具体发生了什么", "gains": ["收获，0-3 条，每条不超过 16 字"], "costs": ["代价，0-3 条，每条不超过 16 字"], "unresolvedConsequences": ["还没解决、之后可能发酵的事，0-2 条"], "facts": [{"kind": "ACTIVITY|EDUCATION|EMPLOYMENT|FINANCE|SKILL|RELATIONSHIP|LOCATION|RESPONSIBILITY|CREATION|EXTERNAL 之一", "statement": "不超过 30 字的客观事实", "causalReasons": ["PLAYER_DECISION、PRIOR_FACT 或 MIXED_CAUSE"], "dependsOnFactIndexes": [这条事实依赖的已发生事实编号，没有就写 []]}]}',
+    "facts 写 2-4 条，写已经真实发生的事，而不是感受或计划；它们会成为玩家人生中真正发生过的事，后面的剧情只能从这些事实出发。",
+    "causalReasons：PLAYER_DECISION 表示直接由这次决定造成；PRIOR_FACT 表示由之前的事实造成；MIXED_CAUSE 表示两者共同造成。",
+  ].join("\n");
+
+  const { intent, situation, possibility } = input;
+  const lines = [`时间：${situation.timeLabel}`];
+  if (possibility) lines.push(`这次展开的是「${possibility.title}」：${possibility.summary}`);
   lines.push(
+    "具体场景：",
+    situation.concreteContext,
+    `此刻的张力：${situation.tensions.join("；")}`,
+    "",
+    input.isCustomAction ? "玩家自己写下的应对：" : "玩家选择的应对：",
+    "<<<",
+    input.actionLabel,
+    ">>>",
+    "",
+    "玩家的打算：",
+    `目标：${intent.goals.join("；")}`,
+    `看重：${intent.priorities.join("；")}`,
+    `限制：${intent.constraints.length > 0 ? intent.constraints.join("；") : "（未提及）"}`,
     "",
     "已发生的事实：",
-    ...(input.facts.length > 0 ? input.facts.map((fact, index) => `[${index + 1}] ${fact.statement}`) : ["（暂无）"]),
+    ...numberedFacts(input.facts),
   );
   return { system, user: lines.join("\n") };
+}
+
+function numberedFacts(facts: readonly Pick<Fact, "statement">[]): string[] {
+  return facts.length > 0 ? facts.map((fact, index) => `[${index + 1}] ${fact.statement}`) : ["（暂无）"];
 }

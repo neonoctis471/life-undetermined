@@ -17,6 +17,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
 const NEXT_STEPS: Record<AiOperation, z.infer<typeof NextStepSchema>> = {
   UNDERSTAND_INTENT: "CONFIRM_INTENT",
   GENERATE_SITUATION: "SELECT_SITUATION",
+  RESOLVE_OUTCOME: "REVIEW_OUTCOME",
 };
 
 const AiSuccessResponseSchema = successResponseSchema(AiResponseDataSchema);

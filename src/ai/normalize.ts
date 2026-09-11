@@ -1,9 +1,22 @@
 import type { ZodType } from "zod";
 
-import type { Action, Fact, Possibility, Situation } from "@/contracts/game";
+import {
+  FactKindSchema,
+  ResolvedOutcomeSchema,
+  type Action,
+  type CausalReason,
+  type Fact,
+  type FactKind,
+  type FactProposal,
+  type Possibility,
+  type ResolvedOutcome,
+  type Situation,
+} from "@/contracts/game";
 
 import {
+  AiDraftFactSchema,
   AiDraftIntentSchema,
+  AiDraftOutcomeSchema,
   AiDraftSituationSchema,
   SituationCandidateSchema,
   UnderstandIntentResultSchema,
@@ -15,7 +28,8 @@ import {
 /*
  * normalize() turns a loose model draft into a candidate that passes the strict
  * domain schemas. It injects every authoritative field (ids, fixed titles, time
- * labels, trigger Fact ids) and repairs arrays instead of rejecting the draft.
+ * labels, trigger Fact ids, causal evidence) and repairs arrays instead of
+ * rejecting the draft.
  */
 
 export class AiNormalizeError extends Error {
@@ -42,7 +56,9 @@ export const POSSIBILITY_TITLES = {
 
 export const CUSTOM_ACTION_LABEL = "我有自己的办法";
 export const MAX_PRESET_ACTIONS = 4;
+export const MAX_OUTCOME_FACTS = 4;
 const MAX_TRIGGER_FACTS = 4;
+const MAX_FACT_DEPENDENCIES = 8;
 
 const LIMITS = {
   listItem: 40,
@@ -50,6 +66,8 @@ const LIMITS = {
   condition: 60,
   summary: 600,
   scene: 1_200,
+  narrative: 1_200,
+  factStatement: 120,
 } as const;
 
 const DEFAULT_GOAL = "按自己的节奏开始毕业后的生活";
@@ -181,12 +199,7 @@ export function normalizeSituationDraft(
  */
 export function resolveTriggerFactIds(indexes: readonly number[], context: SituationContext): string[] {
   if (context.chapter === "DAY_8") return [];
-  const ids: string[] = [];
-  for (const index of indexes) {
-    const fact = Number.isInteger(index) && index >= 1 ? context.facts[index - 1] : undefined;
-    if (fact && !ids.includes(fact.id)) ids.push(fact.id);
-    if (ids.length >= MAX_TRIGGER_FACTS) break;
-  }
+  const ids = mapFactIndexes(indexes, context.facts, MAX_TRIGGER_FACTS);
   if (ids.length === 0) {
     const latest = context.facts.at(-1);
     if (!latest) throw new AiNormalizeError("later chapters require at least one prior Fact");
@@ -209,8 +222,136 @@ function buildActions(labels: readonly string[], deps: NormalizeDependencies): A
 const isCustomActionLabel = (label: string) => /自己的办法|自己的方式|自定义|^其他/.test(label);
 
 // ---------------------------------------------------------------------------
-// Text helpers
+// Outcome
 // ---------------------------------------------------------------------------
+
+export interface OutcomeContext {
+  decisionId: string;
+  /** Facts in authoritative order before this Outcome; index n refers to facts[n - 1]. */
+  facts: readonly Pick<Fact, "id">[];
+  actionLabel: string;
+  /** Set by the server, never by the model. */
+  validation: "ACCEPTED" | "FALLBACK";
+}
+
+type CausalEvidence = Pick<FactProposal, "causalReasons" | "causedByDecisionIds" | "dependsOnFactIds">;
+
+export function normalizeOutcomeDraft(
+  raw: unknown,
+  context: OutcomeContext,
+  deps: NormalizeDependencies,
+): ResolvedOutcome {
+  const draft = parseDraft(AiDraftOutcomeSchema, raw);
+  const actionLabel = cleanText(context.actionLabel, LIMITS.action) ?? "这个决定";
+  const narrative =
+    cleanText(draft.narrative, LIMITS.narrative) ?? `你决定「${actionLabel}」，并照着这个决定做了下去。`;
+
+  const addedFacts: FactProposal[] = [];
+  for (const item of draft.facts ?? []) {
+    const fact = normalizeFactDraft(item, context);
+    if (fact && !addedFacts.some(({ statement }) => statement === fact.statement)) addedFacts.push(fact);
+    if (addedFacts.length >= MAX_OUTCOME_FACTS) break;
+  }
+  if (addedFacts.length === 0) {
+    // The engine rejects an Outcome without an authoritative Fact.
+    addedFacts.push({
+      kind: "ACTIVITY",
+      statement: firstSentence(narrative) ?? `按「${actionLabel}」处理了这件事`,
+      source: "GAME_SIMULATION",
+      ...resolveCausalEvidence([], [], context),
+    });
+  }
+
+  return finalGate(
+    ResolvedOutcomeSchema,
+    {
+      id: deps.createId(),
+      decisionId: context.decisionId,
+      narrative,
+      gains: cleanList(draft.gains, { maxItems: 4, maxLength: LIMITS.listItem }),
+      costs: cleanList(draft.costs, { maxItems: 4, maxLength: LIMITS.listItem }),
+      addedFacts,
+      unresolvedConsequences: cleanList(draft.unresolvedConsequences, { maxItems: 3, maxLength: LIMITS.listItem }),
+      validation: context.validation,
+    },
+    "Outcome",
+  );
+}
+
+function normalizeFactDraft(item: unknown, context: OutcomeContext): FactProposal | null {
+  const candidate = typeof item === "string" ? { statement: item } : item;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+  const parsed = AiDraftFactSchema.safeParse(candidate);
+  if (!parsed.success) return null;
+  const statement = cleanText(parsed.data.statement, LIMITS.factStatement);
+  if (!statement) return null;
+  return {
+    kind: normalizeFactKind(parsed.data.kind),
+    statement,
+    // Outcome Facts are always game simulation; Zhihu content never becomes a Fact.
+    source: "GAME_SIMULATION",
+    ...resolveCausalEvidence(parsed.data.causalReasons ?? [], parsed.data.dependsOnFactIndexes ?? [], context),
+  };
+}
+
+/**
+ * Keeps only causal claims the server can back with evidence, mirroring the
+ * engine's validateCausalEvidence:
+ * - PLAYER_DECISION → the current Decision id is attached;
+ * - PRIOR_FACT      → kept only if an index maps to an existing Fact;
+ * - EXTERNAL_EVENT  → always dropped (models never supply an externalEventId);
+ * - MIXED_CAUSE     → kept only with Decision + prior Fact evidence, else degraded;
+ * - nothing left    → PLAYER_DECISION.
+ */
+export function resolveCausalEvidence(
+  rawReasons: readonly string[],
+  factIndexes: readonly number[],
+  context: Pick<OutcomeContext, "decisionId" | "facts">,
+): CausalEvidence {
+  const requested = new Set(rawReasons.map((reason) => reason.trim().toUpperCase()));
+  const priorFactIds = mapFactIndexes(factIndexes, context.facts, MAX_FACT_DEPENDENCIES);
+  const reasons: CausalReason[] = [];
+  if (requested.has("PLAYER_DECISION")) reasons.push("PLAYER_DECISION");
+  if (requested.has("PRIOR_FACT") && priorFactIds.length > 0) reasons.push("PRIOR_FACT");
+  if (requested.has("MIXED_CAUSE")) {
+    if (priorFactIds.length > 0) reasons.push("MIXED_CAUSE");
+    else if (!reasons.includes("PLAYER_DECISION")) reasons.push("PLAYER_DECISION");
+  }
+  if (reasons.length === 0) reasons.push("PLAYER_DECISION");
+
+  const usesDecision = reasons.includes("PLAYER_DECISION") || reasons.includes("MIXED_CAUSE");
+  const usesPriorFacts = reasons.includes("PRIOR_FACT") || reasons.includes("MIXED_CAUSE");
+  return {
+    causalReasons: reasons,
+    causedByDecisionIds: usesDecision ? [context.decisionId] : [],
+    dependsOnFactIds: usesPriorFacts ? priorFactIds : [],
+  };
+}
+
+function normalizeFactKind(value: string | undefined): FactKind {
+  const parsed = FactKindSchema.safeParse(value?.trim().toUpperCase());
+  return parsed.success ? parsed.data : "ACTIVITY";
+}
+
+function firstSentence(text: string): string | undefined {
+  const sentence = text.split(/[。！？!?\n]/).find((part) => part.trim().length > 0);
+  return cleanText(sentence, 60);
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/** 1-based prompt indexes → Fact ids; out-of-range, non-integer and duplicate indexes are dropped. */
+function mapFactIndexes(indexes: readonly number[], facts: readonly Pick<Fact, "id">[], max: number): string[] {
+  const ids: string[] = [];
+  for (const index of indexes) {
+    const fact = Number.isInteger(index) && index >= 1 ? facts[index - 1] : undefined;
+    if (fact && !ids.includes(fact.id)) ids.push(fact.id);
+    if (ids.length >= max) break;
+  }
+  return ids;
+}
 
 export function cleanText(value: unknown, maxLength: number): string | undefined {
   if (typeof value !== "string") return undefined;

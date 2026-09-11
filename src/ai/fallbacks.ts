@@ -76,3 +76,14 @@ const SITUATION_TEMPLATES: Record<MainChapter, Record<string, unknown>> = {
 export function buildFallbackSituationDraft(chapter: MainChapter): Record<string, unknown> {
   return structuredClone(SITUATION_TEMPLATES[chapter]);
 }
+
+export function buildFallbackOutcomeDraft(actionLabel: string): Record<string, unknown> {
+  const label = actionLabel.length > 24 ? `${actionLabel.slice(0, 23)}…` : actionLabel;
+  return {
+    narrative: `你决定「${label}」，并照着这个决定做了下去。事情没有想象中那么顺利，也没有想象中那么糟。几天之后，生活因为这个决定有了一点变化，也留下了一些还没想清楚的事。`,
+    gains: ["按自己的决定行动了"],
+    costs: ["花掉了原本安排给别处的时间"],
+    unresolvedConsequences: [],
+    facts: [{ kind: "ACTIVITY", statement: `按「${label}」的方式处理了这件事`, causalReasons: ["PLAYER_DECISION"] }],
+  };
+}
