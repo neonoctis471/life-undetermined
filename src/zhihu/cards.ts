@@ -20,7 +20,8 @@ import { intentKeywords, selectEvidence } from "./rank";
 
 /**
  * Minimum model-judged relevance (0-10) for a Zhihu card to be shown. An
- * off-topic card hurts more than a missing one, so cards below it are dropped.
+ * off-topic card hurts more than a missing one, so scored cards below it are
+ * dropped.
  */
 export const RELEVANCE_THRESHOLD = 6;
 
@@ -31,7 +32,8 @@ const EVIDENCE_PROMPT_CHARS = 1_200;
 
 export interface RelevanceLogEntry {
   title: string;
-  score: number;
+  /** null when the summary call produced no scores at all. */
+  score: number | null;
   kept: boolean;
 }
 
@@ -85,7 +87,7 @@ export async function buildExperienceCards(
     if (judged.cards.length > 0) {
       data = { source: "ZHIHU", cards: judged.cards };
     } else {
-      // Nothing relevant enough: use the thinking prompts the same call already returned.
+      // Scored, but nothing relevant enough: use the thinking prompts the same call already returned.
       const fallback = raw && typeof raw === "object" ? { points: (raw as { fallbackPoints?: unknown }).fallbackPoints } : null;
       const card = normalizeSupplementCard(fallback, deps.createId);
       if (card) data = { source: "AI_SUPPLEMENT", cards: [card] };
@@ -178,10 +180,9 @@ const FABRICATED_EXPERIENCE = /知乎|网友|答主|有人(曾|说|分享|经历
 const toStrings = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : typeof value === "string" ? [value] : [];
 
-/** Missing or malformed scores count as 0, so an unjudged card is never shown. */
-function readRelevance(value: unknown): number {
-  const number = typeof value === "number" ? value : typeof value === "string" ? Number(value.trim()) : Number.NaN;
-  return Number.isFinite(number) ? Math.min(10, Math.max(0, Math.round(number))) : 0;
+function readRelevance(value: unknown): number | null {
+  const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value.trim()) : Number.NaN;
+  return Number.isFinite(number) ? Math.min(10, Math.max(0, Math.round(number))) : null;
 }
 
 /** Drops text that cites a number the original never mentions. */
@@ -216,22 +217,55 @@ function readCardDrafts(raw: unknown): Map<number, Record<string, unknown>> {
   return drafts;
 }
 
+/** Unaltered original: author, title, excerpt and link only. */
+function originalCard(item: ZhihuEvidence): ZhihuCard | null {
+  const parsed = ZhihuCardSchema.safeParse({
+    provenance: "ZHIHU_ORIGINAL",
+    id: item.id,
+    title: item.title,
+    authorName: item.authorName,
+    url: item.url,
+    contentType: item.contentType,
+    excerpt: excerptOf(item.text),
+    relevance: null,
+    conditions: [],
+    whatTheyDid: null,
+    whatHappened: null,
+    similarities: [],
+    differences: [],
+    voteUpCount: item.voteUpCount,
+  });
+  return parsed.success ? parsed.data : null;
+}
+
 /**
- * Judges each evidence item by the model's relevance score. Items below
- * RELEVANCE_THRESHOLD (or never scored) are dropped; one precise card beats a
- * precise card plus an off-topic one. AI fields survive only if the original
- * supports them.
+ * Turns evidence into cards.
+ * - No scores at all (the relay hung or the model ignored the field): show the
+ *   deterministic top items as excerpt-only ZHIHU_ORIGINAL cards, so the Zhihu
+ *   connection never silently disappears.
+ * - Scores present: drop cards below RELEVANCE_THRESHOLD (a missing score then
+ *   counts as 0); one precise card beats a precise one plus an off-topic one.
+ *   AI fields survive only if the original supports them.
  */
 export function judgeZhihuCards(
   raw: unknown,
   evidence: readonly ZhihuEvidence[],
 ): { cards: ZhihuCard[]; scores: RelevanceLogEntry[] } {
   const drafts = readCardDrafts(raw);
+  const scored = [...drafts.values()].some((draft) => readRelevance(draft.relevance) !== null);
+  if (!scored) {
+    const cards = evidence.flatMap((item) => {
+      const card = originalCard(item);
+      return card ? [card] : [];
+    });
+    return { cards, scores: evidence.map((item) => ({ title: item.title, score: null, kept: true })) };
+  }
+
   const scores: RelevanceLogEntry[] = [];
   const judged: { card: ZhihuCard; relevance: number }[] = [];
   evidence.forEach((item, index) => {
     const draft = drafts.get(index + 1);
-    const relevance = readRelevance(draft?.relevance);
+    const relevance = readRelevance(draft?.relevance) ?? 0;
     const passes = relevance >= RELEVANCE_THRESHOLD;
     scores.push({ title: item.title, score: relevance, kept: passes });
     if (!passes) return;

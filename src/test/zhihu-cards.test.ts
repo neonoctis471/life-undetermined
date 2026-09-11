@@ -115,9 +115,22 @@ describe("judgeZhihuCards", () => {
     expect(atThreshold.cards).toHaveLength(1);
   });
 
-  it("never shows a card the model did not score", () => {
-    expect(judgeZhihuCards(null, [evidence()]).cards).toEqual([]);
-    expect(judgeZhihuCards({ cards: [{ index: 1, whatTheyDid: "一边学剪辑一边拍视频" }] }, [evidence()]).cards).toEqual([]);
+  it("shows excerpt-only originals in deterministic order when nothing was scored", () => {
+    const pair = [evidence(), evidence({ id: "2", title: "另一个问题", url: "https://www.zhihu.com/q/2" })];
+    const failed = judgeZhihuCards(null, pair);
+    expect(failed.cards.map(({ id, provenance, relevance, whatTheyDid }) => ({ id, provenance, relevance, whatTheyDid }))).toEqual([
+      { id: "1", provenance: "ZHIHU_ORIGINAL", relevance: null, whatTheyDid: null },
+      { id: "2", provenance: "ZHIHU_ORIGINAL", relevance: null, whatTheyDid: null },
+    ]);
+    expect(failed.scores.every(({ score, kept }) => score === null && kept)).toBe(true);
+
+    const unscored = judgeZhihuCards({ cards: [{ index: 1, whatTheyDid: "一边学剪辑一边拍视频" }] }, [evidence()]);
+    expect(unscored.cards[0]).toMatchObject({ provenance: "ZHIHU_ORIGINAL", relevance: null, whatTheyDid: null });
+  });
+
+  it("counts a missing score as 0 once other cards are scored", () => {
+    const pair = [evidence(), evidence({ id: "2", title: "另一个问题", url: "https://www.zhihu.com/q/2" })];
+    expect(judgeZhihuCards({ cards: [{ index: 1, relevance: 8 }, { index: 2 }] }, pair).cards.map(({ id }) => id)).toEqual(["1"]);
   });
 
   it("never lets the AI card pose as someone's experience", () => {
@@ -153,10 +166,11 @@ describe("buildExperienceCards", () => {
     expect(stats.aiCalls).toBe(1);
   });
 
-  it("shows nothing when the summary call fails, without spending a second AI call", async () => {
+  it("keeps real excerpt cards when the summary call fails, without a second AI call", async () => {
     const failingAi: AiProvider = { completeJson: async () => Promise.reject(new Error("down")) };
     const { data, stats } = await buildExperienceCards(request, { zhihu: twoResults, ai: failingAi, createId });
-    expect(data).toEqual({ source: "NONE", cards: [] });
+    expect(data.source).toBe("ZHIHU");
+    expect(data.cards.map((card) => card.provenance)).toEqual(["ZHIHU_ORIGINAL", "ZHIHU_ORIGINAL"]);
     expect(stats.aiCalls).toBe(1);
   });
 

@@ -19,7 +19,7 @@ export function POST(request: Request): Promise<Response> {
         createId: randomUUID,
         // Titles are public Zhihu content; no player text or secret is logged.
         logRelevance: (entry) =>
-          console.info(`[zhihu-relevance] score=${entry.score} kept=${entry.kept} title=${entry.title.slice(0, 60)}`),
+          console.info(`[zhihu-relevance] score=${entry.score ?? "none"} kept=${entry.kept} title=${entry.title.slice(0, 60)}`),
       }),
     createId: randomUUID,
     logUsage: (entry) =>
