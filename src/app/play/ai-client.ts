@@ -2,12 +2,17 @@ import {
   AiResponseDataSchema,
   type GenerateSituationRequest,
   type GenerateSituationResponseData,
+  type ResolveOutcomeRequest,
+  type ResolveOutcomeResponseData,
   type UnderstandIntentRequest,
   type UnderstandIntentResponseData,
 } from "@/ai/contracts";
 import { ApiErrorSchema, successResponseSchema } from "@/contracts/api";
 
 const ResponseSchema = successResponseSchema(AiResponseDataSchema);
+
+type AnyRequest = UnderstandIntentRequest | GenerateSituationRequest | ResolveOutcomeRequest;
+type AnyResponse = UnderstandIntentResponseData | GenerateSituationResponseData | ResolveOutcomeResponseData;
 
 export class AiCallError extends Error {
   constructor(
@@ -24,24 +29,19 @@ export interface Timed<T> {
   elapsedMs: number;
 }
 
-export function requestUnderstandIntent(
-  input: UnderstandIntentRequest["input"],
-  signal?: AbortSignal,
-): Promise<Timed<UnderstandIntentResponseData>> {
-  return callAi({ operation: "UNDERSTAND_INTENT", input }, signal) as Promise<Timed<UnderstandIntentResponseData>>;
+export function requestUnderstandIntent(input: UnderstandIntentRequest["input"]) {
+  return callAi({ operation: "UNDERSTAND_INTENT", input }) as Promise<Timed<UnderstandIntentResponseData>>;
 }
 
-export function requestSituation(
-  input: GenerateSituationRequest["input"],
-  signal?: AbortSignal,
-): Promise<Timed<GenerateSituationResponseData>> {
-  return callAi({ operation: "GENERATE_SITUATION", input }, signal) as Promise<Timed<GenerateSituationResponseData>>;
+export function requestSituation(input: GenerateSituationRequest["input"]) {
+  return callAi({ operation: "GENERATE_SITUATION", input }) as Promise<Timed<GenerateSituationResponseData>>;
 }
 
-async function callAi(
-  request: UnderstandIntentRequest | GenerateSituationRequest,
-  signal?: AbortSignal,
-): Promise<Timed<UnderstandIntentResponseData | GenerateSituationResponseData>> {
+export function requestOutcome(input: ResolveOutcomeRequest["input"]) {
+  return callAi({ operation: "RESOLVE_OUTCOME", input }) as Promise<Timed<ResolveOutcomeResponseData>>;
+}
+
+async function callAi(request: AnyRequest): Promise<Timed<AnyResponse>> {
   const started = performance.now();
   let response: Response;
   try {
@@ -49,7 +49,6 @@ async function callAi(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
-      signal,
     });
   } catch {
     throw new AiCallError("网络连接失败，请重试。", true);
@@ -68,3 +67,5 @@ async function callAi(
   }
   return { data: parsed.data.data, elapsedMs: Math.round(performance.now() - started) };
 }
+
+export const errorMessage = (error: unknown) => (error instanceof AiCallError ? error.message : "出了点问题，请重试。");

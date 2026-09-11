@@ -1,136 +1,83 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useRef, useState } from "react";
 
 import type {
   GenerateSituationResponseData,
   IntentCandidate,
+  MainChapter,
+  ResolveOutcomeResponseData,
   UnderstandIntentResponseData,
 } from "@/ai/contracts";
-import type { Intent } from "@/contracts/game";
+import type { Action } from "@/contracts/game";
+import type { GameAction, GameState } from "@/game-state";
+import { buildDecision, isKeyDecisionTurn, nextChapter, previousChoices, toIntentCandidate } from "@/game/flow";
+import { buildKeyDecisionSnapshot } from "@/game/key-snapshot";
+
+import { errorMessage, requestOutcome, requestSituation, requestUnderstandIntent, type Timed } from "./ai-client";
+import { engineDeps, getGameStore, useGameState } from "./client-store";
 import {
-  createGameStateStore,
-  createGameStorage,
-  type GameState,
-  type GameStateStore,
-  type StorageLike,
-} from "@/game-state";
+  IntentConfirm,
+  IntentInput,
+  OutcomePending,
+  OutcomeView,
+  Possibilities,
+  SituationView,
+  type Async,
+} from "./screens";
 
-import { AiCallError, requestSituation, requestUnderstandIntent, type Timed } from "./ai-client";
+type SituationSlots = Partial<Record<MainChapter, Async<Timed<GenerateSituationResponseData>>>>;
 
-const PLAN_OPTIONS = [
-  "找专业相关工作",
-  "先找一份能养活自己的工作",
-  "考研",
-  "考公 / 考编",
-  "学习新的职业技能",
-  "自由职业 / 接单",
-  "做自媒体",
-  "尝试创业",
-  "回家发展",
-  "帮家里做生意",
-  "去别的城市试试",
-  "先休息一段时间",
-];
-
-type Async<T> =
-  | { status: "idle" }
-  | { status: "pending" }
-  | { status: "error"; message: string }
-  | { status: "ready"; value: T };
-
-// ---------------------------------------------------------------------------
-// Client-side GameState store (localStorage, falls back to memory)
-// ---------------------------------------------------------------------------
-
-let clientStore: { store: GameStateStore; snapshot: GameState } | null = null;
-
-function memoryStorage(): StorageLike {
-  const values = new Map<string, string>();
-  return {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => void values.set(key, value),
-    removeItem: (key) => void values.delete(key),
-  };
-}
-
-function getClientStore() {
-  if (!clientStore) {
-    const engine = { createId: () => crypto.randomUUID(), now: () => new Date().toISOString() };
-    let store: GameStateStore;
-    try {
-      store = createGameStateStore({ storage: createGameStorage(window.localStorage), engine });
-    } catch {
-      store = createGameStateStore({ storage: createGameStorage(memoryStorage()), engine });
-    }
-    const holder = { store, snapshot: store.getState() };
-    store.subscribe((state) => {
-      holder.snapshot = state;
-    });
-    clientStore = holder;
-  }
-  return clientStore;
-}
-
-function subscribe(onChange: () => void) {
-  const unsubscribe = getClientStore().store.subscribe(() => onChange());
-  return () => {
-    unsubscribe();
-  };
-}
-
-const getSnapshot = (): GameState | null => getClientStore().snapshot;
-const getServerSnapshot = (): GameState | null => null;
-
-function toCandidate(intent: Intent): IntentCandidate {
-  return {
-    rawText: intent.rawText,
-    goals: intent.goals,
-    priorities: intent.priorities,
-    constraints: intent.constraints,
-    currentActions: intent.currentActions,
-  };
-}
-
-const errorMessage = (error: unknown) => (error instanceof AiCallError ? error.message : "出了点问题，请重试。");
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
+const IDLE = { status: "idle" } as const;
 
 export default function PlayPage() {
-  const gameState = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const gameState = useGameState();
   const [rawText, setRawText] = useState("");
   const [plans, setPlans] = useState<string[]>([]);
-  const [understanding, setUnderstanding] = useState<Async<Timed<UnderstandIntentResponseData>>>({ status: "idle" });
-  const [situation, setSituation] = useState<Async<Timed<GenerateSituationResponseData>>>({ status: "idle" });
-  const [pickedAction, setPickedAction] = useState<string | null>(null);
+  const [understanding, setUnderstanding] = useState<Async<Timed<UnderstandIntentResponseData>>>(IDLE);
+  const [situations, setSituations] = useState<SituationSlots>({});
+  const [outcome, setOutcome] = useState<Async<Timed<ResolveOutcomeResponseData>>>(IDLE);
+  const [showPossibilities, setShowPossibilities] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const requestToken = useRef(0);
+  // Bumped on reset/edit so late responses from an abandoned run are ignored.
+  const session = useRef(0);
 
   if (!gameState) return <main>加载中…</main>;
 
-  const dispatch = (action: Parameters<GameStateStore["dispatch"]>[0]) => {
+  const dispatch = (action: GameAction): boolean => {
     try {
-      getClientStore().store.dispatch(action);
+      getGameStore().dispatch(action);
       return true;
     } catch {
-      setNotice("状态校验没有通过，这一步没有写入。可以重新开始。");
+      setNotice("状态校验没有通过，这一步没有写入。可以重试或重新开始。");
       return false;
     }
   };
 
-  const startSituation = (intent: IntentCandidate) => {
-    const token = requestToken.current;
-    setSituation({ status: "pending" });
-    requestSituation({ chapter: "DAY_8", intent, facts: [], previousChoices: [] })
+  const setSlot = (chapter: MainChapter, value: Async<Timed<GenerateSituationResponseData>>) =>
+    setSituations((current) => ({ ...current, [chapter]: value }));
+
+  const startSituation = (chapter: MainChapter, state: GameState, intent: IntentCandidate) => {
+    const token = session.current;
+    setSlot(chapter, { status: "pending" });
+    requestSituation({ chapter, intent, facts: state.facts, previousChoices: previousChoices(state) })
       .then((value) => {
-        if (requestToken.current === token) setSituation({ status: "ready", value });
+        if (session.current === token) setSlot(chapter, { status: "ready", value });
       })
       .catch((error: unknown) => {
-        if (requestToken.current === token) setSituation({ status: "error", message: errorMessage(error) });
+        if (session.current === token) setSlot(chapter, { status: "error", message: errorMessage(error) });
       });
   };
+
+  const ensureSituation = (chapter: MainChapter) => {
+    const slot = situations[chapter];
+    const state = getGameStore().getState();
+    if ((!slot || slot.status === "idle" || slot.status === "error") && state.intent) {
+      startSituation(chapter, state, toIntentCandidate(state.intent));
+    }
+  };
+
+  // Screens 2-3 -------------------------------------------------------------
 
   const submitIntent = async () => {
     const text = rawText.trim() || (plans.length > 0 ? `我打算：${plans.join("、")}。` : "");
@@ -139,53 +86,216 @@ export default function PlayPage() {
       return;
     }
     setNotice(null);
-    requestToken.current += 1;
-    const token = requestToken.current;
-    setSituation({ status: "idle" });
+    session.current += 1;
+    const token = session.current;
+    setSituations({});
     setUnderstanding({ status: "pending" });
     try {
       const value = await requestUnderstandIntent({ rawText: text, selectedPlans: plans });
-      if (requestToken.current !== token) return;
+      if (session.current !== token) return;
       setUnderstanding({ status: "ready", value });
       // Prefetch DAY_8 while the player reads "我理解的是这样，对吗？".
-      startSituation(value.data.result.intent);
+      startSituation("DAY_8", getGameStore().getState(), value.data.result.intent);
     } catch (error) {
-      if (requestToken.current === token) setUnderstanding({ status: "error", message: errorMessage(error) });
+      if (session.current === token) setUnderstanding({ status: "error", message: errorMessage(error) });
     }
   };
 
   const editIntent = () => {
-    requestToken.current += 1;
-    setUnderstanding({ status: "idle" });
-    setSituation({ status: "idle" });
+    session.current += 1;
+    setUnderstanding(IDLE);
+    setSituations({});
   };
 
   const confirmIntent = () => {
-    if (understanding.status !== "ready") return;
+    if (understanding.status !== "ready" || getGameStore().getState().currentStage !== "CREATED") return;
     const candidate = understanding.value.data.result.intent;
-    if (!dispatch({ type: "CONFIRM_INTENT", intent: { ...candidate, confirmedAt: new Date().toISOString() } })) return;
-    if (situation.status === "idle" || situation.status === "error") startSituation(candidate);
+    if (!dispatch({ type: "CONFIRM_INTENT", intent: { ...candidate, confirmedAt: engineDeps.now() } })) return;
+    const slot = situations.DAY_8;
+    if (!slot || slot.status === "idle" || slot.status === "error") {
+      startSituation("DAY_8", getGameStore().getState(), candidate);
+    }
   };
 
+  // Screens 4-6 -------------------------------------------------------------
+
   const choosePossibility = (kind: "MOMENTUM" | "UNEXPECTED") => {
-    if (situation.status !== "ready") return;
-    const candidate = situation.value.data.result;
+    const state = getGameStore().getState();
+    const chapter = nextChapter(state);
+    if (!chapter || !["INTENT_CONFIRMED", "OUTCOME_RESOLVED"].includes(state.currentStage)) return;
+    const slot = situations[chapter];
+    if (slot?.status !== "ready") return;
+    const candidate = slot.value.data.result;
     const possibility = candidate.possibilities.find((item) => item.kind === kind);
     if (!possibility) return;
-    setPickedAction(null);
-    dispatch({ type: "ADD_SITUATION", situation: candidate.variants[kind], selectedPossibilityId: possibility.id });
+    if (dispatch({ type: "ADD_SITUATION", situation: candidate.variants[kind], selectedPossibilityId: possibility.id })) {
+      setShowPossibilities(false);
+      setOutcome(IDLE);
+    }
+  };
+
+  const resolveOutcome = () => {
+    const state = getGameStore().getState();
+    const played = state.situations.at(-1);
+    const decision = state.decisions.at(-1);
+    if (!played || !decision || !state.intent || state.currentStage !== "DECISION_RECORDED") return;
+    const token = session.current;
+    setOutcome({ status: "pending" });
+    requestOutcome({
+      intent: toIntentCandidate(state.intent),
+      situation: played.situation,
+      selectedPossibilityId: played.selectedPossibilityId,
+      decision,
+      facts: state.facts,
+    })
+      .then((value) => {
+        if (session.current !== token) return;
+        if (!dispatch({ type: "APPLY_OUTCOME", outcome: value.data.result })) {
+          setOutcome({ status: "error", message: "结果没有通过状态校验，可以重试。" });
+          return;
+        }
+        setOutcome({ status: "ready", value });
+        // Prefetch the next chapter while the player reads the Outcome.
+        const next = getGameStore().getState();
+        const chapter = nextChapter(next);
+        if (chapter && next.intent) startSituation(chapter, next, toIntentCandidate(next.intent));
+      })
+      .catch((error: unknown) => {
+        if (session.current === token) setOutcome({ status: "error", message: errorMessage(error) });
+      });
+  };
+
+  const decide = (action: Action, customText?: string) => {
+    const state = getGameStore().getState();
+    const played = state.situations.at(-1);
+    if (!played || state.currentStage !== "SITUATION_READY") return;
+    if (action.kind === "CUSTOM_PLACEHOLDER" && !customText?.trim()) {
+      setNotice("写下你自己的办法。");
+      return;
+    }
+    const isKeyDecision = isKeyDecisionTurn(state, played.situation);
+    const decision = buildDecision({
+      id: engineDeps.createId(),
+      decidedAt: engineDeps.now(),
+      situation: played.situation,
+      action,
+      customAction: customText,
+      isKeyDecision,
+    });
+    let keyDecisionSnapshot;
+    try {
+      // Built by the application from authoritative state, never by AI.
+      keyDecisionSnapshot = isKeyDecision ? buildKeyDecisionSnapshot(state, decision.id, engineDeps) : undefined;
+    } catch {
+      setNotice("关键决定的快照没有生成成功，可以重新开始。");
+      return;
+    }
+    if (!dispatch({ type: "RECORD_DECISION", decision, keyDecisionSnapshot })) return;
+    setNotice(null);
+    resolveOutcome();
   };
 
   const reset = () => {
-    requestToken.current += 1;
-    getClientStore().store.reset();
-    setUnderstanding({ status: "idle" });
-    setSituation({ status: "idle" });
-    setPickedAction(null);
+    session.current += 1;
+    getGameStore().reset();
+    setUnderstanding(IDLE);
+    setSituations({});
+    setOutcome(IDLE);
+    setShowPossibilities(false);
     setNotice(null);
   };
 
+  // Render --------------------------------------------------------------------
+
   const stage = gameState.currentStage;
+  const chapter = nextChapter(gameState);
+  const latestOutcomeId = gameState.outcomes.at(-1)?.id;
+  const outcomeBadge =
+    outcome.status === "ready" && outcome.value.data.result.id === latestOutcomeId
+      ? { generation: outcome.value.data.generation, elapsedMs: outcome.value.elapsedMs }
+      : undefined;
+
+  let body: React.ReactNode;
+  switch (stage) {
+    case "CREATED":
+      body =
+        understanding.status === "ready" ? (
+          <IntentConfirm
+            understanding={understanding.value}
+            prefetchStatus={situations.DAY_8?.status ?? "idle"}
+            onConfirm={confirmIntent}
+            onEdit={editIntent}
+          />
+        ) : (
+          <IntentInput
+            rawText={rawText}
+            plans={plans}
+            pending={understanding.status === "pending"}
+            error={understanding.status === "error" ? understanding.message : null}
+            onTextChange={setRawText}
+            onTogglePlan={(plan) =>
+              setPlans((current) => (current.includes(plan) ? current.filter((item) => item !== plan) : [...current, plan]))
+            }
+            onSubmit={submitIntent}
+          />
+        );
+      break;
+    case "INTENT_CONFIRMED":
+      body = (
+        <Possibilities
+          chapter="DAY_8"
+          slot={situations.DAY_8 ?? IDLE}
+          facts={gameState.facts}
+          onChoose={choosePossibility}
+          onGenerate={() => ensureSituation("DAY_8")}
+        />
+      );
+      break;
+    case "SITUATION_READY":
+      body = <SituationView key={gameState.situations.at(-1)?.situation.id} state={gameState} onDecide={decide} />;
+      break;
+    case "DECISION_RECORDED":
+      body = <OutcomePending state={gameState} status={outcome} onRetry={resolveOutcome} />;
+      break;
+    case "OUTCOME_RESOLVED":
+      body =
+        showPossibilities && chapter ? (
+          <Possibilities
+            chapter={chapter}
+            slot={situations[chapter] ?? IDLE}
+            facts={gameState.facts}
+            onChoose={choosePossibility}
+            onGenerate={() => ensureSituation(chapter)}
+          />
+        ) : (
+          <OutcomeView
+            state={gameState}
+            badge={outcomeBadge}
+            continueLabel="继续"
+            onContinue={() => {
+              setShowPossibilities(true);
+              if (chapter) ensureSituation(chapter);
+            }}
+          />
+        );
+      break;
+    case "LONG_TERM_READY":
+      body = (
+        <OutcomeView
+          state={gameState}
+          badge={outcomeBadge}
+          continueLabel="五年以后"
+          onContinue={() => setNotice("五年后的生活将在下一步接入。")}
+        />
+      );
+      break;
+    default:
+      body = (
+        <div className="card">
+          <p>当前进度（{stage}）的后续流程将在下一步接入。</p>
+        </div>
+      );
+  }
 
   return (
     <main>
@@ -197,229 +307,7 @@ export default function PlayPage() {
         <button onClick={reset}>重新开始</button>
       </div>
       {notice && <p className="error">{notice}</p>}
-
-      {stage === "CREATED" && understanding.status !== "ready" && (
-        <IntentInput
-          rawText={rawText}
-          plans={plans}
-          pending={understanding.status === "pending"}
-          error={understanding.status === "error" ? understanding.message : null}
-          onTextChange={setRawText}
-          onTogglePlan={(plan) =>
-            setPlans((current) => (current.includes(plan) ? current.filter((item) => item !== plan) : [...current, plan]))
-          }
-          onSubmit={submitIntent}
-        />
-      )}
-
-      {stage === "CREATED" && understanding.status === "ready" && (
-        <IntentConfirm
-          understanding={understanding.value}
-          situationStatus={situation.status}
-          onConfirm={confirmIntent}
-          onEdit={editIntent}
-        />
-      )}
-
-      {stage === "INTENT_CONFIRMED" && (
-        <Possibilities
-          situation={situation}
-          onChoose={choosePossibility}
-          onGenerate={() => gameState.intent && startSituation(toCandidate(gameState.intent))}
-        />
-      )}
-
-      {stage === "SITUATION_READY" && (
-        <SituationView gameState={gameState} pickedAction={pickedAction} onPickAction={setPickedAction} />
-      )}
-
-      {!["CREATED", "INTENT_CONFIRMED", "SITUATION_READY"].includes(stage) && (
-        <div className="card">
-          <p>当前进度（{stage}）的后续流程将在下一阶段接入。</p>
-        </div>
-      )}
+      {body}
     </main>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Screens
-// ---------------------------------------------------------------------------
-
-function IntentInput(props: {
-  rawText: string;
-  plans: string[];
-  pending: boolean;
-  error: string | null;
-  onTextChange(value: string): void;
-  onTogglePlan(plan: string): void;
-  onSubmit(): void;
-}) {
-  return (
-    <section>
-      <h2>毕业了，你准备怎样开始？</h2>
-      <p className="muted">可以多选，也可以直接说说自己的打算。</p>
-      <div className="row">
-        {PLAN_OPTIONS.map((plan) => (
-          <button
-            key={plan}
-            className="chip"
-            aria-pressed={props.plans.includes(plan)}
-            onClick={() => props.onTogglePlan(plan)}
-            disabled={props.pending}
-          >
-            {plan}
-          </button>
-        ))}
-      </div>
-      <textarea
-        value={props.rawText}
-        maxLength={1_000}
-        disabled={props.pending}
-        placeholder="例如：我想先回家帮家里做店里的事情，同时学剪辑试着拍视频。如果几个月还是没什么感觉，我可能会再找工作。"
-        onChange={(event) => props.onTextChange(event.target.value)}
-      />
-      <div className="row">
-        <button className="primary" onClick={props.onSubmit} disabled={props.pending}>
-          {props.pending ? "正在理解你的打算…" : "就这样开始"}
-        </button>
-      </div>
-      {props.error && <p className="error">{props.error}</p>}
-    </section>
-  );
-}
-
-function GenerationBadge({ generation, elapsedMs }: { generation: "AI" | "FALLBACK"; elapsedMs: number }) {
-  return (
-    <p className="muted">
-      <span className={generation === "AI" ? "badge" : "badge fallback"}>
-        {generation === "AI" ? "AI 生成" : "保守模板（AI 暂不可用）"}
-      </span>
-      耗时 {(elapsedMs / 1000).toFixed(1)}s
-    </p>
-  );
-}
-
-function IntentConfirm(props: {
-  understanding: Timed<UnderstandIntentResponseData>;
-  situationStatus: Async<unknown>["status"];
-  onConfirm(): void;
-  onEdit(): void;
-}) {
-  const { summary, intent } = props.understanding.data.result;
-  return (
-    <section>
-      <h2>我理解的是这样，对吗？</h2>
-      <div className="card">
-        <GenerationBadge generation={props.understanding.data.generation} elapsedMs={props.understanding.elapsedMs} />
-        <p>{summary}</p>
-        <p>
-          <strong>想做成的事：</strong>
-          {intent.goals.join("；")}
-        </p>
-        <p>
-          <strong>当前最重要的：</strong>
-          {intent.priorities.join("；")}
-        </p>
-        {intent.constraints.length > 0 && (
-          <p>
-            <strong>限制：</strong>
-            {intent.constraints.join("；")}
-          </p>
-        )}
-        <p>
-          <strong>第一步：</strong>
-          {intent.currentActions.join("；")}
-        </p>
-      </div>
-      <div className="row">
-        <button className="primary" onClick={props.onConfirm}>
-          对，就是这样
-        </button>
-        <button onClick={props.onEdit}>我想改一下</button>
-      </div>
-      <p className="muted">
-        第 8 天的生活：
-        {props.situationStatus === "pending" ? "正在后台准备…" : props.situationStatus === "ready" ? "已准备好" : "确认后开始准备"}
-      </p>
-    </section>
-  );
-}
-
-function Possibilities(props: {
-  situation: Async<Timed<GenerateSituationResponseData>>;
-  onChoose(kind: "MOMENTUM" | "UNEXPECTED"): void;
-  onGenerate(): void;
-}) {
-  const { situation } = props;
-  return (
-    <section>
-      <h2>毕业后的第 8 天 · 生活可能这样展开</h2>
-      {situation.status === "idle" && (
-        <button className="primary" onClick={props.onGenerate}>
-          继续
-        </button>
-      )}
-      {situation.status === "pending" && <p>正在生成第 8 天的生活…</p>}
-      {situation.status === "error" && (
-        <>
-          <p className="error">{situation.message}</p>
-          <button onClick={props.onGenerate}>重试</button>
-        </>
-      )}
-      {situation.status === "ready" && (
-        <>
-          <GenerationBadge generation={situation.value.data.generation} elapsedMs={situation.value.elapsedMs} />
-          {situation.value.data.result.possibilities.map((possibility) => (
-            <div className="card" key={possibility.id}>
-              <h3>{possibility.title}</h3>
-              <p>{possibility.summary}</p>
-              <button onClick={() => props.onChoose(possibility.kind)}>看看这种可能</button>
-            </div>
-          ))}
-        </>
-      )}
-    </section>
-  );
-}
-
-function SituationView(props: {
-  gameState: GameState;
-  pickedAction: string | null;
-  onPickAction(label: string): void;
-}) {
-  const played = props.gameState.situations.at(-1);
-  if (!played) return null;
-  const { situation } = played;
-  const possibility = situation.possibilities.find((item) => item.id === played.selectedPossibilityId);
-  return (
-    <section>
-      <h2>
-        {situation.timeLabel} · {possibility?.title}
-      </h2>
-      <div className="card">
-        <p className="scene">{situation.concreteContext}</p>
-        <p className="muted">此刻的张力：{situation.tensions.join(" / ")}</p>
-        {situation.externalConditions.length > 0 && (
-          <p className="muted">外部条件：{situation.externalConditions.join(" / ")}</p>
-        )}
-      </div>
-      <h2>你准备怎么办？</h2>
-      <div className="row">
-        {situation.availableActions.map((action) => (
-          <button
-            key={action.id}
-            aria-pressed={props.pickedAction === action.label}
-            className="chip"
-            onClick={() => props.onPickAction(action.label)}
-          >
-            {action.label}
-          </button>
-        ))}
-      </div>
-      {props.pickedAction && (
-        <p className="muted">你选择了「{props.pickedAction}」。结果生成（RESOLVE_OUTCOME）将在下一阶段接入。</p>
-      )}
-    </section>
   );
 }
