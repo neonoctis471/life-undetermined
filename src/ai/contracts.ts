@@ -75,6 +75,7 @@ export const AiDraftIntentSchema = z.object({
   priorities: looseTextList,
   constraints: looseTextList,
   currentActions: looseTextList,
+  searchQueries: looseTextList,
 });
 
 const AiDraftBranchSchema = looseObject(
@@ -83,6 +84,7 @@ const AiDraftBranchSchema = looseObject(
     scene: looseText,
     actions: looseTextList,
     externalConditions: looseTextList,
+    searchQueries: looseTextList,
   }),
 );
 
@@ -142,6 +144,9 @@ export type AiDraftLife = z.infer<typeof AiDraftLifeSchema>;
 // Strict candidate layer (built from existing domain schemas)
 // ---------------------------------------------------------------------------
 
+/** A question-style Zhihu search phrase; used only for retrieval, never shown as content. */
+export const SearchQueryTextSchema = z.string().trim().min(2).max(40);
+
 /** Intent before the player confirms it; the client stamps confirmedAt. */
 export const IntentCandidateSchema = IntentSchema.omit({ confirmedAt: true }).strict();
 export type IntentCandidate = z.infer<typeof IntentCandidateSchema>;
@@ -150,6 +155,7 @@ export const UnderstandIntentResultSchema = z
   .object({
     summary: LongTextSchema,
     intent: IntentCandidateSchema,
+    searchQueries: z.array(SearchQueryTextSchema).min(1).max(3),
   })
   .strict();
 export type UnderstandIntentResult = z.infer<typeof UnderstandIntentResultSchema>;
@@ -160,8 +166,8 @@ export type MainChapter = z.infer<typeof MainChapterSchema>;
 /**
  * One GENERATE_SITUATION call yields both possibilities plus a concrete
  * Situation variant for each, so choosing a possibility needs no second call.
- * Both variants share id, possibilities and triggers; only the scene and
- * actions differ.
+ * Both variants share id, possibilities and triggers; only the scene, actions
+ * and search queries differ. searchQueries stay outside the Situation itself.
  */
 export const SituationCandidateSchema = z
   .object({
@@ -171,6 +177,12 @@ export const SituationCandidateSchema = z
       .object({
         MOMENTUM: SituationSchema,
         UNEXPECTED: SituationSchema,
+      })
+      .strict(),
+    searchQueries: z
+      .object({
+        MOMENTUM: z.array(SearchQueryTextSchema).min(1).max(3),
+        UNEXPECTED: z.array(SearchQueryTextSchema).min(1).max(3),
       })
       .strict(),
   })

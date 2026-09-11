@@ -222,7 +222,6 @@ blockquote {
   border-left: 3px solid #c9ced6;
   color: #444c56;
 }
-
 @keyframes pulse {
   50% {
     opacity: 0.35;

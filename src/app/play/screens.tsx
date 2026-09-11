@@ -273,7 +273,12 @@ export function Possibilities(props: {
 // Screens 5/7/9: concrete Situation and Decision
 // ---------------------------------------------------------------------------
 
-export function SituationView(props: { state: GameState; onDecide(action: Action, customText?: string): void }) {
+export function SituationView(props: {
+  state: GameState;
+  onDecide(action: Action, customText?: string): void;
+  /** Optional experience cards; never blocks the decision. */
+  experience?: React.ReactNode;
+}) {
   const [customOpen, setCustomOpen] = useState(false);
   const [customText, setCustomText] = useState("");
   const played = props.state.situations.at(-1);
@@ -295,6 +300,7 @@ export function SituationView(props: { state: GameState; onDecide(action: Action
           <p className="muted">外部条件：{situation.externalConditions.join(" / ")}</p>
         )}
       </div>
+      {props.experience}
       <h2>你准备怎么办？</h2>
       {isKeyTurn && <p className="muted">这是一个会影响之后几年的决定。五年以后，你还可以回到这里，看看另一种选择。</p>}
       <div className="actions">

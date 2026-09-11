@@ -69,6 +69,7 @@ const MIN_TIMELINE_POINTS = 2;
 const MAX_COMPARISON_ITEMS = 8;
 const MAX_TRIGGER_FACTS = 4;
 const MAX_FACT_DEPENDENCIES = 8;
+const MAX_SEARCH_QUERIES = 2;
 
 const LIMITS = {
   listItem: 40,
@@ -83,6 +84,7 @@ const LIMITS = {
   lifeState: 800,
   reunion: 300,
   memory: 60,
+  searchQuery: 40,
 } as const;
 
 const DEFAULT_GOAL = "按自己的节奏开始毕业后的生活";
@@ -134,7 +136,11 @@ export function normalizeIntentDraft(raw: unknown, context: IntentContext): Unde
 
   return finalGate(
     UnderstandIntentResultSchema,
-    { summary, intent: { rawText: context.rawText, goals, priorities, constraints, currentActions } },
+    {
+      summary,
+      intent: { rawText: context.rawText, goals, priorities, constraints, currentActions },
+      searchQueries: cleanSearchQueries(draft.searchQueries, `毕业后${goals[0]}`),
+    },
     "Intent",
   );
 }
@@ -200,6 +206,7 @@ export function normalizeSituationDraft(
     ),
   });
 
+  const fallbackQuery = `毕业后${tensions[0]}`;
   return finalGate(
     SituationCandidateSchema,
     {
@@ -208,6 +215,10 @@ export function normalizeSituationDraft(
       variants: {
         MOMENTUM: buildVariant(momentum, possibilities[0]!.summary),
         UNEXPECTED: buildVariant(unexpected, possibilities[1]!.summary),
+      },
+      searchQueries: {
+        MOMENTUM: cleanSearchQueries(momentum.searchQueries, fallbackQuery),
+        UNEXPECTED: cleanSearchQueries(unexpected.searchQueries, fallbackQuery),
       },
     },
     "Situation",
@@ -242,6 +253,15 @@ function buildActions(labels: readonly string[], deps: NormalizeDependencies): A
 }
 
 const isCustomActionLabel = (label: string) => /自己的办法|自己的方式|自定义|^其他/.test(label);
+
+/** Question-style search phrases for Zhihu; URLs and quotes are stripped, a derived fallback keeps one. */
+function cleanSearchQueries(values: readonly string[] | undefined, fallback: string): string[] {
+  const stripped = (values ?? []).map((value) => value.replace(/https?:\/\/\S+/g, "").replace(/[“”"「」『』]/g, ""));
+  const queries = cleanList(stripped, { maxItems: MAX_SEARCH_QUERIES, maxLength: LIMITS.searchQuery }).filter(
+    (query) => query.length >= 2,
+  );
+  return queries.length > 0 ? queries : [truncate(fallback, LIMITS.searchQuery)];
+}
 
 // ---------------------------------------------------------------------------
 // Outcome

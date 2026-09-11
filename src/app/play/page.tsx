@@ -13,6 +13,7 @@ import type {
 import type { Action } from "@/contracts/game";
 import type { GameAction, GameState } from "@/game-state";
 import {
+  MAIN_CHAPTERS,
   buildDecision,
   choiceSummaries,
   isKeyDecisionTurn,
@@ -24,6 +25,7 @@ import {
   toIntentCandidate,
 } from "@/game/flow";
 import { buildKeyDecisionSnapshot } from "@/game/key-snapshot";
+import type { ExperienceRequest, ExperienceResponseData } from "@/zhihu/contracts";
 
 import {
   errorMessage,
@@ -34,6 +36,7 @@ import {
   type Timed,
 } from "./ai-client";
 import { engineDeps, getGameStore, useGameState } from "./client-store";
+import { ExperiencePanel } from "./experience-cards";
 import { loadForkChoice, saveForkChoice, type ForkChoice } from "./fork-choice";
 import {
   ComparisonView,
@@ -52,8 +55,10 @@ import {
   SituationView,
   type Async,
 } from "./screens";
+import { requestExperience } from "./zhihu-client";
 
 type SituationSlots = Partial<Record<MainChapter, Async<Timed<GenerateSituationResponseData>>>>;
+type ExperienceSlots = Partial<Record<MainChapter, Async<ExperienceResponseData>>>;
 type LifeSlot = Async<Timed<SimulateLifeResponseData>>;
 
 const IDLE = { status: "idle" } as const;
@@ -62,6 +67,7 @@ const FIVE_YEARS_MIN_MS = 5_000;
 const REWIND_MIN_MS = 7_000;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const isMainChapter = (chapter: string): chapter is MainChapter => (MAIN_CHAPTERS as readonly string[]).includes(chapter);
 
 export default function PlayPage() {
   const gameState = useGameState();
@@ -69,6 +75,7 @@ export default function PlayPage() {
   const [plans, setPlans] = useState<string[]>([]);
   const [understanding, setUnderstanding] = useState<Async<Timed<UnderstandIntentResponseData>>>(IDLE);
   const [situations, setSituations] = useState<SituationSlots>({});
+  const [experiences, setExperiences] = useState<ExperienceSlots>({});
   const [outcome, setOutcome] = useState<Async<Timed<ResolveOutcomeResponseData>>>(IDLE);
   const [showPossibilities, setShowPossibilities] = useState(false);
   const [fiveYears, setFiveYears] = useState<LifeSlot>(IDLE);
@@ -116,6 +123,19 @@ export default function PlayPage() {
     }
   };
 
+  /** Experience cards run in parallel and never block the main line; failures just hide the panel. */
+  const startExperience = (chapter: MainChapter, input: ExperienceRequest) => {
+    const token = session.current;
+    setExperiences((current) => ({ ...current, [chapter]: { status: "pending" } }));
+    requestExperience(input)
+      .then((value) => {
+        if (session.current === token) setExperiences((current) => ({ ...current, [chapter]: { status: "ready", value } }));
+      })
+      .catch(() => {
+        if (session.current === token) setExperiences((current) => ({ ...current, [chapter]: { status: "error", message: "" } }));
+      });
+  };
+
   const startFiveYears = (state: GameState): Promise<Timed<SimulateLifeResponseData>> | null => {
     if (!state.intent || state.facts.length === 0) return null;
     const token = session.current;
@@ -147,6 +167,7 @@ export default function PlayPage() {
     session.current += 1;
     const token = session.current;
     setSituations({});
+    setExperiences({});
     setUnderstanding({ status: "pending" });
     try {
       const value = await requestUnderstandIntent({ rawText: text, selectedPlans: plans });
@@ -163,16 +184,19 @@ export default function PlayPage() {
     session.current += 1;
     setUnderstanding(IDLE);
     setSituations({});
+    setExperiences({});
   };
 
   const confirmIntent = () => {
     if (understanding.status !== "ready" || getGameStore().getState().currentStage !== "CREATED") return;
-    const candidate = understanding.value.data.result.intent;
+    const { intent: candidate, searchQueries } = understanding.value.data.result;
     if (!dispatch({ type: "CONFIRM_INTENT", intent: { ...candidate, confirmedAt: engineDeps.now() } })) return;
     const slot = situations.DAY_8;
     if (!slot || slot.status === "idle" || slot.status === "error") {
       startSituation("DAY_8", getGameStore().getState(), candidate);
     }
+    // Prefetch real experiences for the first chapter once the Intent is confirmed.
+    startExperience("DAY_8", { intent: candidate, situation: null, queries: searchQueries });
   };
 
   // Screens 4-9 -------------------------------------------------------------
@@ -180,15 +204,27 @@ export default function PlayPage() {
   const choosePossibility = (kind: "MOMENTUM" | "UNEXPECTED") => {
     const state = getGameStore().getState();
     const chapter = nextChapter(state);
-    if (!chapter || !["INTENT_CONFIRMED", "OUTCOME_RESOLVED"].includes(state.currentStage)) return;
+    if (!chapter || !state.intent || !["INTENT_CONFIRMED", "OUTCOME_RESOLVED"].includes(state.currentStage)) return;
     const slot = situations[chapter];
     if (slot?.status !== "ready") return;
     const candidate = slot.value.data.result;
     const possibility = candidate.possibilities.find((item) => item.kind === kind);
     if (!possibility) return;
-    if (dispatch({ type: "ADD_SITUATION", situation: candidate.variants[kind], selectedPossibilityId: possibility.id })) {
-      setShowPossibilities(false);
-      setOutcome(IDLE);
+    const variant = candidate.variants[kind];
+    if (!dispatch({ type: "ADD_SITUATION", situation: variant, selectedPossibilityId: possibility.id })) return;
+    setShowPossibilities(false);
+    setOutcome(IDLE);
+    const existing = experiences[chapter];
+    if (chapter !== "DAY_8" || !existing || existing.status === "error") {
+      startExperience(chapter, {
+        intent: toIntentCandidate(state.intent),
+        situation: {
+          timeLabel: variant.timeLabel,
+          concreteContext: variant.concreteContext.slice(0, 1_200),
+          tensions: variant.tensions,
+        },
+        queries: candidate.searchQueries[kind],
+      });
     }
   };
 
@@ -336,6 +372,7 @@ export default function PlayPage() {
     saveForkChoice(null);
     setUnderstanding(IDLE);
     setSituations({});
+    setExperiences({});
     setOutcome(IDLE);
     setShowPossibilities(false);
     setFiveYears(IDLE);
@@ -350,6 +387,7 @@ export default function PlayPage() {
 
   const stage = gameState.currentStage;
   const chapter = nextChapter(gameState);
+  const firstStep = gameState.intent?.currentActions[0];
   const latestOutcomeId = gameState.outcomes.at(-1)?.id;
   const outcomeBadge =
     outcome.status === "ready" && outcome.value.data.result.id === latestOutcomeId
@@ -358,6 +396,7 @@ export default function PlayPage() {
   const lifeBadge = (slot: LifeSlot) =>
     slot.status === "ready" ? { generation: slot.value.data.generation, elapsedMs: slot.value.elapsedMs } : undefined;
   const replacement = forkChoice?.gameId === gameState.gameId ? forkChoice.text : null;
+  const currentChapter = gameState.situations.at(-1)?.situation.chapter;
 
   let body: React.ReactNode;
   switch (stage) {
@@ -389,14 +428,24 @@ export default function PlayPage() {
         <Possibilities
           chapter="DAY_8"
           slot={situations.DAY_8 ?? IDLE}
-          facts={gameState.facts} firstStep={gameState.intent?.currentActions[0]}
+          facts={gameState.facts}
+          firstStep={firstStep}
           onChoose={choosePossibility}
           onGenerate={() => ensureSituation("DAY_8")}
         />
       );
       break;
     case "SITUATION_READY":
-      body = <SituationView key={gameState.situations.at(-1)?.situation.id} state={gameState} onDecide={decide} />;
+      body = (
+        <SituationView
+          key={gameState.situations.at(-1)?.situation.id}
+          state={gameState}
+          onDecide={decide}
+          experience={
+            currentChapter && isMainChapter(currentChapter) ? <ExperiencePanel experience={experiences[currentChapter]} /> : null
+          }
+        />
+      );
       break;
     case "DECISION_RECORDED":
       body = <OutcomePending state={gameState} status={outcome} onRetry={resolveOutcome} />;
@@ -407,7 +456,8 @@ export default function PlayPage() {
           <Possibilities
             chapter={chapter}
             slot={situations[chapter] ?? IDLE}
-            facts={gameState.facts} firstStep={gameState.intent?.currentActions[0]}
+            facts={gameState.facts}
+            firstStep={firstStep}
             onChoose={choosePossibility}
             onGenerate={() => ensureSituation(chapter)}
           />
