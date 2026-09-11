@@ -1,5 +1,15 @@
 # 部署说明（Vercel）
 
+## 当前线上
+
+- 作品名：《人生未定式》
+- 正式地址：https://eilnoctis.com（`www.eilnoctis.com` 301 到主域名）
+- 备用地址：https://twice-eta.vercel.app（`*.vercel.app` 在中国大陆直连会被重置，仅供代理环境使用）
+- Vercel 项目：`neonoctis471s-projects/twice`，CLI 从本地文件部署，未接 Git 集成
+- DNS（DNSPod）：`@ A 76.76.21.21`，`www CNAME cname.vercel-dns.com`
+
+本机主机名含中文，Vercel CLI 会因非 ASCII 请求头崩溃。运行 CLI 前用 `NODE_OPTIONS=--require <ascii-hostname.cjs>` 只为 CLI 进程改写 `os.hostname()`。
+
 ## 环境变量（只配在 Vercel 后台或 `vercel env`，绝不上传 `.env.local`）
 
 | 名称 | 说明 |

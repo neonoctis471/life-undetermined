@@ -478,8 +478,8 @@ export default function PlayPage() {
     <main>
       <div className="topbar">
         <div>
-          <h1>五年以后，你会在哪里？</h1>
-          <p className="muted">毕业以后的人生，没有标准答案。你可以亲自走一条路。</p>
+          <h1>人生未定式</h1>
+          <p className="muted">毕业后的五年，你可以走两遍。</p>
         </div>
         <button onClick={reset}>重新开始</button>
       </div>
