@@ -15,6 +15,7 @@
 - 改造期间只做 preview 部署（`vercel deploy`，不带 `--prod`），并用 `vercel alias set <preview-url> preview.eilnoctis.com` 挂到预览域名；DNSPod 记录 `preview CNAME cname.vercel-dns.com`。
 - 每个阶段在 preview.eilnoctis.com 验收通过后，才允许 `vercel deploy --prod`。eilnoctis.com 在任何时刻都必须是完整可玩的版本。
 - Preview 与 Production 各有一套环境变量，名称相同，都只经 stdin 写入。
+- 项目 `twice` 已关闭 Vercel Authentication（`ssoProtection: null`），preview 部署与生产一样公开，否则 preview.eilnoctis.com 会被登录页拦住，手机无法验收。需要恢复时：`vercel api /v9/projects/twice -X PATCH --input -`，请求体 `{"ssoProtection":{"deploymentType":"all_except_custom_domains"}}`。
 
 ## 轮换 AI Key（9/13 提交前）
 
