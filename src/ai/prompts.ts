@@ -1,6 +1,6 @@
 import type { Fact, Possibility, Situation } from "@/contracts/game";
 
-import type { IntentCandidate, MainChapter } from "./contracts";
+import type { IntentCandidate, MainChapter, SimulateLifeRequest } from "./contracts";
 
 export interface PromptPair {
   system: string;
@@ -64,14 +64,7 @@ export function buildGenerateSituationPrompt(input: {
   const lines = [
     `章节：${CHAPTER_GUIDES[input.chapter]}`,
     "",
-    "玩家已确认的打算：",
-    "原话：<<<",
-    intent.rawText,
-    ">>>",
-    `目标：${intent.goals.join("；")}`,
-    `看重：${intent.priorities.join("；")}`,
-    `限制：${intent.constraints.length > 0 ? intent.constraints.join("；") : "（未提及）"}`,
-    `当前行动：${intent.currentActions.join("；")}`,
+    ...intentLines(intent),
   ];
   if (input.previousChoices.length > 0) {
     lines.push("", "玩家之前做过的决定：", ...input.previousChoices.map((choice) => `- ${choice}`));
@@ -115,15 +108,95 @@ export function buildResolveOutcomePrompt(input: {
     input.actionLabel,
     ">>>",
     "",
-    "玩家的打算：",
-    `目标：${intent.goals.join("；")}`,
-    `看重：${intent.priorities.join("；")}`,
-    `限制：${intent.constraints.length > 0 ? intent.constraints.join("；") : "（未提及）"}`,
+    ...intentLines(intent),
     "",
     "已发生的事实：",
     ...numberedFacts(input.facts),
   );
   return { system, user: lines.join("\n") };
+}
+
+type SimulateLifeInput = SimulateLifeRequest["input"];
+
+/** One skeleton for both modes; COUNTERFACTUAL adds the single replaced Decision and a comparison. */
+export function buildSimulateLifePrompt(input: SimulateLifeInput): PromptPair {
+  const counterfactual = input.mode === "COUNTERFACTUAL";
+  const timelineGuide = counterfactual
+    ? "4 个节点，label 依次为：一个月以后、一年以后、三年以后、五年以后"
+    : "4-5 个节点，从第一年写到第五年，前几年要与已发生的事实一致";
+  const comparisonShape = counterfactual
+    ? ', "comparison": {"changedByDecision": ["因为这个决定而逐渐不同的方面，2-5 条，每条不超过 24 字"], "unchanged": ["两段人生中都没有改变的，1-4 条"], "external": ["无法归因于玩家选择的外部变化，0-3 条"]}'
+    : "";
+  const system = [
+    "你是一款“毕业后五年人生”模拟游戏的长期推演者。你根据已经发生的事实推演之后几年的生活，只提出候选内容，游戏程序会校验后决定是否采用。",
+    "规则：",
+    "1. 从已发生的事实出发，不要改写或否认它们；新发生的事要能从这些事实和玩家的决定中看出来由来。",
+    "2. 平实具体，有得有失，不写成功学，不保证成功，不出现分数或等级，不评价哪种人生更好。",
+    "3. 不要提及知乎、网友经历或任何真实人物。",
+    counterfactual
+      ? "4. 这是一条平行人生：只替换第四年的那一个决定，此前的经历、家庭、城市、技能和外部条件都保持不变。从被替换的决定开始推演。"
+      : "4. 这是玩家已经走过的人生：从毕业写到第五年，第五年的状态要由第四年的决定和之前的事实自然推出。",
+    `5. ${DATA_BOUNDARY}`,
+    "只输出一个 JSON 对象，结构如下：",
+    `{"timeline": [{"label": "时间点", "summary": "40-100 字，这段时间具体发生了什么"}], "currentState": "80-150 字，五年后的日常生活", "reunionAnswer": "毕业五年同学聚会上有人问“你现在平时都在做什么？”，用第一人称口语回答，30-60 字", "commemorativeFacts": ["这五年真正发生过的事，6-10 条，每条不超过 20 字，可以带数字"]${comparisonShape}}`,
+    `timeline：${timelineGuide}。`,
+  ].join("\n");
+
+  if (input.mode === "FIVE_YEARS") {
+    const lines = [
+      ...intentLines(input.intent),
+      "",
+      "玩家做过的三个决定：",
+      ...input.choices.map(
+        (choice) => `- ${choice.timeLabel}${choice.isKeyDecision ? "（关键决定）" : ""}：情境「${choice.situation}」；玩家选择「${choice.action}」`,
+      ),
+      "",
+      "已发生的事实：",
+      ...numberedFacts(input.facts),
+    ];
+    return { system, user: lines.join("\n") };
+  }
+
+  const { snapshot, keyChoice, originalLife } = input;
+  const world = snapshot.worldContext;
+  const lines = [
+    ...intentLines(snapshot.intent),
+    "",
+    "关键决定之前的处境：",
+    `家庭：${world.familyContext}`,
+    `经济：${world.economicStartingPoint}`,
+    `技能：${world.skills.length > 0 ? world.skills.join("；") : "（未记录）"}`,
+    "",
+    "关键决定之前已发生的事实：",
+    ...numberedFacts(input.facts),
+    "",
+    `关键决定（${keyChoice.timeLabel}）：`,
+    `情境：${keyChoice.situation}`,
+    "玩家原来的选择：<<<",
+    keyChoice.action,
+    ">>>",
+    "这一次替换成：<<<",
+    input.replacementAction,
+    ">>>",
+    "",
+    "原来那段人生（用于比较，不要照抄）：",
+    ...originalLife.timeline.map((point) => `- ${point.label}：${point.summary}`),
+    `五年后：${originalLife.currentState}`,
+  ];
+  return { system, user: lines.join("\n") };
+}
+
+function intentLines(intent: IntentCandidate): string[] {
+  return [
+    "玩家的打算：",
+    "原话：<<<",
+    intent.rawText,
+    ">>>",
+    `目标：${intent.goals.join("；")}`,
+    `看重：${intent.priorities.join("；")}`,
+    `限制：${intent.constraints.length > 0 ? intent.constraints.join("；") : "（未提及）"}`,
+    `当前行动：${intent.currentActions.join("；")}`,
+  ];
 }
 
 function numberedFacts(facts: readonly Pick<Fact, "statement">[]): string[] {

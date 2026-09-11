@@ -12,15 +12,21 @@ import {
   type ResolvedOutcome,
   type Situation,
 } from "@/contracts/game";
+import type { TimelinePoint } from "@/game-state/contracts";
 
 import {
   AiDraftFactSchema,
   AiDraftIntentSchema,
+  AiDraftLifeSchema,
   AiDraftOutcomeSchema,
   AiDraftSituationSchema,
+  AiDraftTimelinePointSchema,
+  SimulateLifeResultSchema,
   SituationCandidateSchema,
   UnderstandIntentResultSchema,
+  type LifeSimulationMode,
   type MainChapter,
+  type SimulateLifeResult,
   type SituationCandidate,
   type UnderstandIntentResult,
 } from "./contracts";
@@ -57,6 +63,10 @@ export const POSSIBILITY_TITLES = {
 export const CUSTOM_ACTION_LABEL = "我有自己的办法";
 export const MAX_PRESET_ACTIONS = 4;
 export const MAX_OUTCOME_FACTS = 4;
+export const MAX_TIMELINE_POINTS = 6;
+export const MAX_COMMEMORATIVE_FACTS = 24;
+const MIN_TIMELINE_POINTS = 2;
+const MAX_COMPARISON_ITEMS = 8;
 const MAX_TRIGGER_FACTS = 4;
 const MAX_FACT_DEPENDENCIES = 8;
 
@@ -68,6 +78,11 @@ const LIMITS = {
   scene: 1_200,
   narrative: 1_200,
   factStatement: 120,
+  timelineLabel: 40,
+  timelineSummary: 500,
+  lifeState: 800,
+  reunion: 300,
+  memory: 60,
 } as const;
 
 const DEFAULT_GOAL = "按自己的节奏开始毕业后的生活";
@@ -86,6 +101,13 @@ const DEFAULT_POSSIBILITY_SUMMARIES = {
 } as const;
 
 const DEFAULT_PRESET_ACTIONS = ["先处理眼前最急的事", "停下来和身边的人商量", "按原计划继续，接受一些代价"];
+
+const DEFAULT_TIMELINE_LABELS: Record<LifeSimulationMode, string[]> = {
+  FIVE_YEARS: ["第一年", "第二年", "第三年", "第四年", "第五年"],
+  COUNTERFACTUAL: ["一个月以后", "一年以后", "三年以后", "五年以后"],
+};
+
+const DEFAULT_CURRENT_STATE = "五年过去了，生活还在按自己的节奏往前走。";
 
 // ---------------------------------------------------------------------------
 // Intent
@@ -336,6 +358,79 @@ function normalizeFactKind(value: string | undefined): FactKind {
 function firstSentence(text: string): string | undefined {
   const sentence = text.split(/[。！？!?\n]/).find((part) => part.trim().length > 0);
   return cleanText(sentence, 60);
+}
+
+// ---------------------------------------------------------------------------
+// Life (FIVE_YEARS and COUNTERFACTUAL share one normalizer)
+// ---------------------------------------------------------------------------
+
+export interface LifeContext {
+  mode: LifeSimulationMode;
+  /** Facts the simulation starts from, used only for fallbacks. */
+  facts: readonly Pick<Fact, "statement">[];
+}
+
+/** Truncates by count and by character length, pads the timeline to 2 points. */
+export function normalizeLifeDraft(raw: unknown, context: LifeContext): SimulateLifeResult {
+  const draft = parseDraft(AiDraftLifeSchema, raw);
+  const labels = DEFAULT_TIMELINE_LABELS[context.mode];
+
+  const timeline: TimelinePoint[] = [];
+  for (const item of draft.timeline ?? []) {
+    const point = normalizeTimelinePoint(item, labels[timeline.length] ?? `第 ${timeline.length + 1} 段`);
+    if (point) timeline.push(point);
+    if (timeline.length >= MAX_TIMELINE_POINTS) break;
+  }
+  const currentState = cleanText(draft.currentState, LIMITS.lifeState) ?? timeline.at(-1)?.summary ?? DEFAULT_CURRENT_STATE;
+  if (timeline.length === 0) timeline.push({ label: labels[0]!, summary: summarizeFacts(context.facts) });
+  if (timeline.length < MIN_TIMELINE_POINTS) timeline.push({ label: labels.at(-1)!, summary: truncate(currentState, LIMITS.timelineSummary) });
+
+  const reunionAnswer = cleanText(draft.reunionAnswer, LIMITS.reunion) ?? truncate(currentState, LIMITS.reunion);
+  const commemorativeFacts = orDefault(
+    cleanList(draft.commemorativeFacts, { maxItems: MAX_COMMEMORATIVE_FACTS, maxLength: LIMITS.memory }),
+    fallbackMemories(context.facts, timeline),
+  );
+  const comparisonList = (values: readonly string[] | undefined) =>
+    cleanList(values, { maxItems: MAX_COMPARISON_ITEMS, maxLength: LIMITS.memory });
+  const comparison =
+    context.mode === "COUNTERFACTUAL"
+      ? {
+          changedByDecision: comparisonList(draft.comparison?.changedByDecision),
+          unchanged: comparisonList(draft.comparison?.unchanged),
+          external: comparisonList(draft.comparison?.external),
+        }
+      : null;
+
+  return finalGate(
+    SimulateLifeResultSchema,
+    { mode: context.mode, life: { timeline, currentState, reunionAnswer, commemorativeFacts }, comparison },
+    "LifePath",
+  );
+}
+
+function normalizeTimelinePoint(item: unknown, fallbackLabel: string): TimelinePoint | null {
+  if (typeof item === "string") {
+    const summary = cleanText(item, LIMITS.timelineSummary);
+    return summary ? { label: fallbackLabel, summary } : null;
+  }
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+  const parsed = AiDraftTimelinePointSchema.safeParse(item);
+  if (!parsed.success) return null;
+  const point = parsed.data;
+  const summary = cleanText(point.summary ?? point.text ?? point.content ?? point.description, LIMITS.timelineSummary);
+  if (!summary) return null;
+  return { label: cleanText(point.label ?? point.time ?? point.year, LIMITS.timelineLabel) ?? fallbackLabel, summary };
+}
+
+function summarizeFacts(facts: readonly Pick<Fact, "statement">[]): string {
+  return cleanText(facts.slice(0, 3).map(({ statement }) => statement).join("；"), LIMITS.timelineSummary)
+    ?? "日子一天天过去，事情慢慢有了形状。";
+}
+
+function fallbackMemories(facts: readonly Pick<Fact, "statement">[], timeline: readonly TimelinePoint[]): string[] {
+  const fromFacts = cleanList(facts.map(({ statement }) => statement), { maxItems: MAX_COMMEMORATIVE_FACTS, maxLength: LIMITS.memory });
+  if (fromFacts.length > 0) return fromFacts;
+  return cleanList(timeline.map(({ label, summary }) => `${label}：${summary}`), { maxItems: MAX_COMMEMORATIVE_FACTS, maxLength: LIMITS.memory });
 }
 
 // ---------------------------------------------------------------------------

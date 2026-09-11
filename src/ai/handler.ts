@@ -7,18 +7,25 @@ import {
   type NextStepSchema,
 } from "@/contracts/api";
 
-import { AiRequestSchema, AiResponseDataSchema, type AiOperation } from "./contracts";
+import { AiRequestSchema, AiResponseDataSchema, type AiResponseData } from "./contracts";
 import type { AiProvider } from "./provider";
 import { runAiOperation, type AiLogEvent } from "./service";
 
-const MAX_BODY_BYTES = 64_000;
+const MAX_BODY_BYTES = 128_000;
 const NO_STORE = { "Cache-Control": "no-store" };
 
-const NEXT_STEPS: Record<AiOperation, z.infer<typeof NextStepSchema>> = {
-  UNDERSTAND_INTENT: "CONFIRM_INTENT",
-  GENERATE_SITUATION: "SELECT_SITUATION",
-  RESOLVE_OUTCOME: "REVIEW_OUTCOME",
-};
+function nextStepFor(data: AiResponseData): z.infer<typeof NextStepSchema> {
+  switch (data.operation) {
+    case "UNDERSTAND_INTENT":
+      return "CONFIRM_INTENT";
+    case "GENERATE_SITUATION":
+      return "SELECT_SITUATION";
+    case "RESOLVE_OUTCOME":
+      return "REVIEW_OUTCOME";
+    case "SIMULATE_LIFE":
+      return data.result.mode === "FIVE_YEARS" ? "SELECT_KEY_DECISION" : "REVIEW_COMPARISON";
+  }
+}
 
 const AiSuccessResponseSchema = successResponseSchema(AiResponseDataSchema);
 
@@ -70,7 +77,7 @@ export async function handleAiRequest(request: Request, deps: AiHandlerDependenc
     const data = await runAiOperation(parsed.data, { provider, createId: deps.createId, log: deps.log });
     const body = AiSuccessResponseSchema.parse({
       data,
-      meta: { requestId, eventVersion: 0, nextStep: NEXT_STEPS[data.operation] },
+      meta: { requestId, eventVersion: 0, nextStep: nextStepFor(data) },
     });
     return Response.json(body, { headers: NO_STORE });
   } catch {

@@ -77,6 +77,37 @@ export function buildFallbackSituationDraft(chapter: MainChapter): Record<string
   return structuredClone(SITUATION_TEMPLATES[chapter]);
 }
 
+export function buildFallbackLifeDraft(
+  input: { mode: "FIVE_YEARS" } | { mode: "COUNTERFACTUAL"; originalAction: string; replacementAction: string },
+): Record<string, unknown> {
+  if (input.mode === "FIVE_YEARS") {
+    // Timeline and memories are filled by normalize() from the player's real Facts.
+    return {
+      timeline: [],
+      currentState: "五年过去了。之前的那些决定慢慢变成了日常的一部分：有些事一直在做，有些事已经放下。",
+      reunionAnswer: "还在按自己的节奏过日子，之前开始的事情，有的还在继续。",
+      commemorativeFacts: [],
+    };
+  }
+  const clip = (text: string) => (text.length > 24 ? `${text.slice(0, 23)}…` : text);
+  const original = clip(input.originalAction);
+  const replacement = clip(input.replacementAction);
+  return {
+    timeline: [
+      { label: "一个月以后", summary: `这一次，你选择了「${replacement}」。最初的变化很小，只是日常安排有了一点不同。` },
+      { label: "五年以后", summary: "很多事情和原来那条路相似，也有一些因为那个决定而慢慢不同。" },
+    ],
+    currentState: "五年过去了。这条路上的日子和原来那条路有相似的地方，也有一些只属于这个选择的变化。",
+    reunionAnswer: "差不多还是那些事，只是当年那个决定之后，节奏变得不太一样了。",
+    commemorativeFacts: [`第四年选择了「${replacement}」`],
+    comparison: {
+      changedByDecision: [`第四年的决定：「${original}」换成「${replacement}」`],
+      unchanged: ["那个决定之前发生的所有事情"],
+      external: [],
+    },
+  };
+}
+
 export function buildFallbackOutcomeDraft(actionLabel: string): Record<string, unknown> {
   const label = actionLabel.length > 24 ? `${actionLabel.slice(0, 23)}…` : actionLabel;
   return {

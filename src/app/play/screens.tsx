@@ -167,12 +167,12 @@ export function TimeAdvance({ steps, caption }: { steps: TimeStep[]; caption: st
       <p className="muted">{caption}</p>
       <div className="timeline">
         {steps.map((step, index) => (
-          <div key={step.label}>
+          <div key={`${index}-${step.label}`}>
             <p className="year beat" style={delay(starts[index]!)}>
               {step.label}
             </p>
             {step.lines.map((line, lineIndex) => (
-              <p key={line} className="beat muted" style={delay(starts[index]! + 0.9 * (lineIndex + 1))}>
+              <p key={`${lineIndex}-${line}`} className="beat muted" style={delay(starts[index]! + 0.9 * (lineIndex + 1))}>
                 {line}
               </p>
             ))}

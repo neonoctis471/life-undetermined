@@ -1,0 +1,9 @@
+.env*
+!.env.example
+.secrets
+.next
+node_modules
+coverage
+.worktrees
+.superpowers
+*.tsbuildinfo

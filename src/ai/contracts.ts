@@ -10,7 +10,9 @@ import {
   ResolvedOutcomeSchema,
   ShortTextSchema,
   SituationSchema,
+  SnapshotSchema,
 } from "@/contracts/game";
+import { LifeComparisonSchema, LifePathSchema } from "@/game-state/contracts";
 
 /*
  * Two-layer AI contract.
@@ -60,6 +62,13 @@ const looseArray = z.unknown().transform((value): unknown[] => {
   return value === undefined || value === null ? [] : [value];
 }).optional();
 
+const looseObject = <T extends z.ZodType<unknown, object>>(shape: T) =>
+  z
+    .unknown()
+    .transform((value) => (value && typeof value === "object" && !Array.isArray(value) ? value : {}))
+    .pipe(shape)
+    .optional();
+
 export const AiDraftIntentSchema = z.object({
   summary: looseText,
   goals: looseTextList,
@@ -68,18 +77,14 @@ export const AiDraftIntentSchema = z.object({
   currentActions: looseTextList,
 });
 
-const AiDraftBranchSchema = z
-  .unknown()
-  .transform((value) => (value && typeof value === "object" ? value : {}))
-  .pipe(
-    z.object({
-      summary: looseText,
-      scene: looseText,
-      actions: looseTextList,
-      externalConditions: looseTextList,
-    }),
-  )
-  .optional();
+const AiDraftBranchSchema = looseObject(
+  z.object({
+    summary: looseText,
+    scene: looseText,
+    actions: looseTextList,
+    externalConditions: looseTextList,
+  }),
+);
 
 export const AiDraftSituationSchema = z.object({
   tensions: looseTextList,
@@ -104,9 +109,34 @@ export const AiDraftOutcomeSchema = z.object({
   facts: looseArray,
 });
 
+export const AiDraftTimelinePointSchema = z.object({
+  label: looseText,
+  time: looseText,
+  year: looseText,
+  summary: looseText,
+  text: looseText,
+  content: looseText,
+  description: looseText,
+});
+
+export const AiDraftLifeSchema = z.object({
+  timeline: looseArray,
+  currentState: looseText,
+  reunionAnswer: looseText,
+  commemorativeFacts: looseTextList,
+  comparison: looseObject(
+    z.object({
+      changedByDecision: looseTextList,
+      unchanged: looseTextList,
+      external: looseTextList,
+    }),
+  ),
+});
+
 export type AiDraftIntent = z.infer<typeof AiDraftIntentSchema>;
 export type AiDraftSituation = z.infer<typeof AiDraftSituationSchema>;
 export type AiDraftOutcome = z.infer<typeof AiDraftOutcomeSchema>;
+export type AiDraftLife = z.infer<typeof AiDraftLifeSchema>;
 
 // ---------------------------------------------------------------------------
 // Strict candidate layer (built from existing domain schemas)
@@ -158,11 +188,29 @@ export const SituationCandidateSchema = z
   });
 export type SituationCandidate = z.infer<typeof SituationCandidateSchema>;
 
+export const LifeSimulationModeSchema = z.enum(["FIVE_YEARS", "COUNTERFACTUAL"]);
+export type LifeSimulationMode = z.infer<typeof LifeSimulationModeSchema>;
+
+/** comparison exists exactly for COUNTERFACTUAL. */
+export const SimulateLifeResultSchema = z
+  .object({
+    mode: LifeSimulationModeSchema,
+    life: LifePathSchema,
+    comparison: LifeComparisonSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if ((value.mode === "COUNTERFACTUAL") !== (value.comparison !== null)) {
+      context.addIssue({ code: "custom", path: ["comparison"], message: "comparison must exist only for COUNTERFACTUAL" });
+    }
+  });
+export type SimulateLifeResult = z.infer<typeof SimulateLifeResultSchema>;
+
 // ---------------------------------------------------------------------------
 // Request / response contracts for POST /api/v1/ai
 // ---------------------------------------------------------------------------
 
-export const AI_OPERATIONS = ["UNDERSTAND_INTENT", "GENERATE_SITUATION", "RESOLVE_OUTCOME"] as const;
+export const AI_OPERATIONS = ["UNDERSTAND_INTENT", "GENERATE_SITUATION", "RESOLVE_OUTCOME", "SIMULATE_LIFE"] as const;
 export const AiOperationSchema = z.enum(AI_OPERATIONS);
 export type AiOperation = z.infer<typeof AiOperationSchema>;
 
@@ -230,15 +278,67 @@ export const ResolveOutcomeRequestSchema = z
   })
   .strict();
 
+/** A prompt-only summary of one played Decision; it never enters GameState. */
+export const ChoiceSummarySchema = z
+  .object({
+    timeLabel: ShortTextSchema,
+    situation: z.string().trim().min(1).max(1_200),
+    action: z.string().trim().min(1).max(400),
+    isKeyDecision: z.boolean(),
+  })
+  .strict();
+export type ChoiceSummary = z.infer<typeof ChoiceSummarySchema>;
+
+const FiveYearsInputSchema = z
+  .object({
+    mode: z.literal("FIVE_YEARS"),
+    intent: IntentSchema,
+    facts: z.array(FactSchema).min(1).max(MAX_REQUEST_FACTS),
+    choices: z.array(ChoiceSummarySchema).min(1).max(3),
+  })
+  .strict();
+
+const CounterfactualInputSchema = z
+  .object({
+    mode: z.literal("COUNTERFACTUAL"),
+    snapshot: SnapshotSchema,
+    /** Exactly the Snapshot's active Facts, in order. */
+    facts: z.array(FactSchema).max(MAX_REQUEST_FACTS),
+    keyChoice: ChoiceSummarySchema,
+    /** The replacement Decision exists only as AI input; it never enters GameState. */
+    replacementAction: z.string().trim().min(1).max(400),
+    originalLife: LifePathSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const ids = value.facts.map(({ id }) => id);
+    const active = value.snapshot.activeFactIds;
+    if (ids.length !== active.length || ids.some((id, index) => id !== active[index])) {
+      context.addIssue({ code: "custom", path: ["facts"], message: "facts must be the Snapshot's active Facts in order" });
+    }
+    if (value.replacementAction.trim() === value.keyChoice.action.trim()) {
+      context.addIssue({ code: "custom", path: ["replacementAction"], message: "replacement must differ from the original" });
+    }
+  });
+
+export const SimulateLifeRequestSchema = z
+  .object({
+    operation: z.literal("SIMULATE_LIFE"),
+    input: z.discriminatedUnion("mode", [FiveYearsInputSchema, CounterfactualInputSchema]),
+  })
+  .strict();
+
 export const AiRequestSchema = z.discriminatedUnion("operation", [
   UnderstandIntentRequestSchema,
   GenerateSituationRequestSchema,
   ResolveOutcomeRequestSchema,
+  SimulateLifeRequestSchema,
 ]);
 export type AiRequest = z.infer<typeof AiRequestSchema>;
 export type UnderstandIntentRequest = z.infer<typeof UnderstandIntentRequestSchema>;
 export type GenerateSituationRequest = z.infer<typeof GenerateSituationRequestSchema>;
 export type ResolveOutcomeRequest = z.infer<typeof ResolveOutcomeRequestSchema>;
+export type SimulateLifeRequest = z.infer<typeof SimulateLifeRequestSchema>;
 
 /** Whether the content came from the model or from a conservative template. */
 export const GenerationSourceSchema = z.enum(["AI", "FALLBACK"]);
@@ -268,12 +368,22 @@ export const ResolveOutcomeResponseDataSchema = z
   })
   .strict();
 
+export const SimulateLifeResponseDataSchema = z
+  .object({
+    operation: z.literal("SIMULATE_LIFE"),
+    generation: GenerationSourceSchema,
+    result: SimulateLifeResultSchema,
+  })
+  .strict();
+
 export const AiResponseDataSchema = z.discriminatedUnion("operation", [
   UnderstandIntentResponseDataSchema,
   GenerateSituationResponseDataSchema,
   ResolveOutcomeResponseDataSchema,
+  SimulateLifeResponseDataSchema,
 ]);
 export type AiResponseData = z.infer<typeof AiResponseDataSchema>;
 export type UnderstandIntentResponseData = z.infer<typeof UnderstandIntentResponseDataSchema>;
 export type GenerateSituationResponseData = z.infer<typeof GenerateSituationResponseDataSchema>;
 export type ResolveOutcomeResponseData = z.infer<typeof ResolveOutcomeResponseDataSchema>;
+export type SimulateLifeResponseData = z.infer<typeof SimulateLifeResponseDataSchema>;

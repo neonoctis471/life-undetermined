@@ -7,15 +7,42 @@ import type {
   IntentCandidate,
   MainChapter,
   ResolveOutcomeResponseData,
+  SimulateLifeResponseData,
   UnderstandIntentResponseData,
 } from "@/ai/contracts";
 import type { Action } from "@/contracts/game";
 import type { GameAction, GameState } from "@/game-state";
-import { buildDecision, isKeyDecisionTurn, nextChapter, previousChoices, toIntentCandidate } from "@/game/flow";
+import {
+  buildDecision,
+  choiceSummaries,
+  isKeyDecisionTurn,
+  keyChoiceSummary,
+  keyDecisionContext,
+  nextChapter,
+  previousChoices,
+  snapshotFacts,
+  toIntentCandidate,
+} from "@/game/flow";
 import { buildKeyDecisionSnapshot } from "@/game/key-snapshot";
 
-import { errorMessage, requestOutcome, requestSituation, requestUnderstandIntent, type Timed } from "./ai-client";
+import {
+  errorMessage,
+  requestLife,
+  requestOutcome,
+  requestSituation,
+  requestUnderstandIntent,
+  type Timed,
+} from "./ai-client";
 import { engineDeps, getGameStore, useGameState } from "./client-store";
+import { loadForkChoice, saveForkChoice, type ForkChoice } from "./fork-choice";
+import {
+  ComparisonView,
+  EndingView,
+  FiveYearsTransition,
+  ForkChooser,
+  ReunionView,
+  RewindTransition,
+} from "./late-screens";
 import {
   IntentConfirm,
   IntentInput,
@@ -27,8 +54,14 @@ import {
 } from "./screens";
 
 type SituationSlots = Partial<Record<MainChapter, Async<Timed<GenerateSituationResponseData>>>>;
+type LifeSlot = Async<Timed<SimulateLifeResponseData>>;
 
 const IDLE = { status: "idle" } as const;
+/** Minimum on-screen time for the long transitions, so the animation reads as time passing. */
+const FIVE_YEARS_MIN_MS = 5_000;
+const REWIND_MIN_MS = 7_000;
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export default function PlayPage() {
   const gameState = useGameState();
@@ -38,9 +71,15 @@ export default function PlayPage() {
   const [situations, setSituations] = useState<SituationSlots>({});
   const [outcome, setOutcome] = useState<Async<Timed<ResolveOutcomeResponseData>>>(IDLE);
   const [showPossibilities, setShowPossibilities] = useState(false);
+  const [fiveYears, setFiveYears] = useState<LifeSlot>(IDLE);
+  const [accelerating, setAccelerating] = useState(false);
+  const [forkPicking, setForkPicking] = useState(false);
+  const [parallel, setParallel] = useState<LifeSlot>(IDLE);
+  const [forkChoice, setForkChoice] = useState<ForkChoice | null>(() => loadForkChoice());
   const [notice, setNotice] = useState<string | null>(null);
   // Bumped on reset/edit so late responses from an abandoned run are ignored.
   const session = useRef(0);
+  const fiveYearsRequest = useRef<Promise<Timed<SimulateLifeResponseData>> | null>(null);
 
   if (!gameState) return <main>加载中…</main>;
 
@@ -75,6 +114,25 @@ export default function PlayPage() {
     if ((!slot || slot.status === "idle" || slot.status === "error") && state.intent) {
       startSituation(chapter, state, toIntentCandidate(state.intent));
     }
+  };
+
+  const startFiveYears = (state: GameState): Promise<Timed<SimulateLifeResponseData>> | null => {
+    if (!state.intent || state.facts.length === 0) return null;
+    const token = session.current;
+    setFiveYears({ status: "pending" });
+    const promise = requestLife({ mode: "FIVE_YEARS", intent: state.intent, facts: state.facts, choices: choiceSummaries(state) });
+    fiveYearsRequest.current = promise;
+    promise.then(
+      (value) => {
+        if (session.current === token) setFiveYears({ status: "ready", value });
+      },
+      (error: unknown) => {
+        if (session.current !== token) return;
+        fiveYearsRequest.current = null;
+        setFiveYears({ status: "error", message: errorMessage(error) });
+      },
+    );
+    return promise;
   };
 
   // Screens 2-3 -------------------------------------------------------------
@@ -117,7 +175,7 @@ export default function PlayPage() {
     }
   };
 
-  // Screens 4-6 -------------------------------------------------------------
+  // Screens 4-9 -------------------------------------------------------------
 
   const choosePossibility = (kind: "MOMENTUM" | "UNEXPECTED") => {
     const state = getGameStore().getState();
@@ -155,10 +213,11 @@ export default function PlayPage() {
           return;
         }
         setOutcome({ status: "ready", value });
-        // Prefetch the next chapter while the player reads the Outcome.
+        // Prefetch while the player reads the Outcome: the next chapter, or the five-year life.
         const next = getGameStore().getState();
         const chapter = nextChapter(next);
         if (chapter && next.intent) startSituation(chapter, next, toIntentCandidate(next.intent));
+        else if (!chapter) startFiveYears(next);
       })
       .catch((error: unknown) => {
         if (session.current === token) setOutcome({ status: "error", message: errorMessage(error) });
@@ -195,13 +254,95 @@ export default function PlayPage() {
     resolveOutcome();
   };
 
+  // Screens 8-15 ------------------------------------------------------------
+
+  const goFiveYears = async () => {
+    const state = getGameStore().getState();
+    if (state.currentStage !== "LONG_TERM_READY") return;
+    const token = session.current;
+    const promise = fiveYearsRequest.current ?? startFiveYears(state);
+    if (!promise) return;
+    setAccelerating(true);
+    try {
+      const [value] = await Promise.all([promise, wait(FIVE_YEARS_MIN_MS)]);
+      if (session.current === token) dispatch({ type: "SET_FIVE_YEAR_LIFE", life: value.data.result.life });
+    } catch {
+      // The error state was already set by startFiveYears; the button retries.
+    } finally {
+      if (session.current === token) setAccelerating(false);
+    }
+  };
+
+  const runCounterfactual = (replacement: string) => {
+    const state = getGameStore().getState();
+    const snapshot = state.keyDecisionSnapshot;
+    const originalLife = state.fiveYearLife;
+    const keyChoice = keyChoiceSummary(state);
+    if (!snapshot || !originalLife || !keyChoice || state.currentStage !== "FORK_READY") return;
+    const token = session.current;
+    setParallel({ status: "pending" });
+    Promise.all([
+      requestLife({
+        mode: "COUNTERFACTUAL",
+        snapshot,
+        facts: snapshotFacts(state),
+        keyChoice,
+        replacementAction: replacement,
+        originalLife,
+      }),
+      wait(REWIND_MIN_MS),
+    ])
+      .then(([value]) => {
+        if (session.current !== token) return;
+        const { life, comparison } = value.data.result;
+        // SET_PARALLEL_LIFE keeps FORK_READY; SET_COMPARISON then moves to COMPARISON_READY.
+        if (!comparison || !dispatch({ type: "SET_PARALLEL_LIFE", life }) || !dispatch({ type: "SET_COMPARISON", comparison })) {
+          setParallel({ status: "error", message: "平行人生没有通过状态校验，可以重试。" });
+          return;
+        }
+        setParallel({ status: "ready", value });
+      })
+      .catch((error: unknown) => {
+        if (session.current === token) setParallel({ status: "error", message: errorMessage(error) });
+      });
+  };
+
+  const confirmFork = (action: Action, customText?: string) => {
+    const state = getGameStore().getState();
+    const key = keyDecisionContext(state);
+    if (!key || !["REUNION_READY", "FORK_READY"].includes(state.currentStage)) return;
+    const replacement = (action.kind === "CUSTOM_PLACEHOLDER" ? (customText ?? "") : action.label).trim();
+    if (!replacement) {
+      setNotice("写下你想换成的选择。");
+      return;
+    }
+    if (replacement === key.label.trim()) {
+      setNotice("换一个和当时不同的选择。");
+      return;
+    }
+    if (state.currentStage === "REUNION_READY" && !dispatch({ type: "OPEN_FORK" })) return;
+    const choice = { gameId: state.gameId, text: replacement.slice(0, 400) };
+    setForkChoice(choice);
+    saveForkChoice(choice);
+    setForkPicking(false);
+    setNotice(null);
+    runCounterfactual(choice.text);
+  };
+
   const reset = () => {
     session.current += 1;
+    fiveYearsRequest.current = null;
     getGameStore().reset();
+    saveForkChoice(null);
     setUnderstanding(IDLE);
     setSituations({});
     setOutcome(IDLE);
     setShowPossibilities(false);
+    setFiveYears(IDLE);
+    setAccelerating(false);
+    setForkPicking(false);
+    setParallel(IDLE);
+    setForkChoice(null);
     setNotice(null);
   };
 
@@ -214,6 +355,9 @@ export default function PlayPage() {
     outcome.status === "ready" && outcome.value.data.result.id === latestOutcomeId
       ? { generation: outcome.value.data.generation, elapsedMs: outcome.value.elapsedMs }
       : undefined;
+  const lifeBadge = (slot: LifeSlot) =>
+    slot.status === "ready" ? { generation: slot.value.data.generation, elapsedMs: slot.value.elapsedMs } : undefined;
+  const replacement = forkChoice?.gameId === gameState.gameId ? forkChoice.text : null;
 
   let body: React.ReactNode;
   switch (stage) {
@@ -280,21 +424,54 @@ export default function PlayPage() {
         );
       break;
     case "LONG_TERM_READY":
+      body = accelerating ? (
+        <FiveYearsTransition state={gameState} />
+      ) : (
+        <>
+          {fiveYears.status === "error" && <p className="error">{fiveYears.message} 点「五年以后」可以重试。</p>}
+          <OutcomeView state={gameState} badge={outcomeBadge} continueLabel="五年以后" onContinue={goFiveYears} />
+        </>
+      );
+      break;
+    case "REUNION_READY":
+      body = forkPicking ? (
+        <ForkChooser state={gameState} onConfirm={confirmFork} />
+      ) : (
+        <ReunionView state={gameState} badge={lifeBadge(fiveYears)} onPickKey={() => setForkPicking(true)} />
+      );
+      break;
+    case "FORK_READY":
+      if (parallel.status === "pending" && replacement) {
+        body = <RewindTransition state={gameState} replacement={replacement} />;
+      } else if (parallel.status === "error" && replacement) {
+        body = (
+          <section>
+            <p className="error">{parallel.message}</p>
+            <div className="row">
+              <button className="primary" onClick={() => runCounterfactual(replacement)}>
+                重试
+              </button>
+              <button onClick={() => setParallel(IDLE)}>换一个选择</button>
+            </div>
+          </section>
+        );
+      } else {
+        body = <ForkChooser state={gameState} onConfirm={confirmFork} />;
+      }
+      break;
+    case "COMPARISON_READY":
       body = (
-        <OutcomeView
+        <ComparisonView
           state={gameState}
-          badge={outcomeBadge}
-          continueLabel="五年以后"
-          onContinue={() => setNotice("五年后的生活将在下一步接入。")}
+          replacement={replacement}
+          badge={lifeBadge(parallel)}
+          onFinish={() => dispatch({ type: "COMPLETE" })}
         />
       );
       break;
-    default:
-      body = (
-        <div className="card">
-          <p>当前进度（{stage}）的后续流程将在下一步接入。</p>
-        </div>
-      );
+    case "COMPLETED":
+      body = <EndingView onRestart={reset} />;
+      break;
   }
 
   return (

@@ -7,6 +7,8 @@ export interface AiCompletionRequest {
   maxTokens: number;
   temperature?: number;
   timeoutMs: number;
+  /** Aborts the call early, e.g. when a hedged attempt already won. */
+  signal?: AbortSignal;
 }
 
 /** Returns the raw text content of a JSON-mode completion. Injectable for tests. */

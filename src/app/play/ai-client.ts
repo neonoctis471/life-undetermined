@@ -1,9 +1,12 @@
 import {
   AiResponseDataSchema,
+  type AiResponseData,
   type GenerateSituationRequest,
   type GenerateSituationResponseData,
   type ResolveOutcomeRequest,
   type ResolveOutcomeResponseData,
+  type SimulateLifeRequest,
+  type SimulateLifeResponseData,
   type UnderstandIntentRequest,
   type UnderstandIntentResponseData,
 } from "@/ai/contracts";
@@ -11,8 +14,7 @@ import { ApiErrorSchema, successResponseSchema } from "@/contracts/api";
 
 const ResponseSchema = successResponseSchema(AiResponseDataSchema);
 
-type AnyRequest = UnderstandIntentRequest | GenerateSituationRequest | ResolveOutcomeRequest;
-type AnyResponse = UnderstandIntentResponseData | GenerateSituationResponseData | ResolveOutcomeResponseData;
+type AnyRequest = UnderstandIntentRequest | GenerateSituationRequest | ResolveOutcomeRequest | SimulateLifeRequest;
 
 export class AiCallError extends Error {
   constructor(
@@ -41,7 +43,11 @@ export function requestOutcome(input: ResolveOutcomeRequest["input"]) {
   return callAi({ operation: "RESOLVE_OUTCOME", input }) as Promise<Timed<ResolveOutcomeResponseData>>;
 }
 
-async function callAi(request: AnyRequest): Promise<Timed<AnyResponse>> {
+export function requestLife(input: SimulateLifeRequest["input"]) {
+  return callAi({ operation: "SIMULATE_LIFE", input }) as Promise<Timed<SimulateLifeResponseData>>;
+}
+
+async function callAi(request: AnyRequest): Promise<Timed<AiResponseData>> {
   const started = performance.now();
   let response: Response;
   try {

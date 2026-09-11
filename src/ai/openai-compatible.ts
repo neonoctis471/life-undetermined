@@ -48,7 +48,9 @@ export function createOpenAiCompatibleProvider(
             temperature: request.temperature ?? 0.8,
             max_tokens: request.maxTokens,
           }),
-          signal: AbortSignal.timeout(request.timeoutMs),
+          signal: request.signal
+            ? AbortSignal.any([AbortSignal.timeout(request.timeoutMs), request.signal])
+            : AbortSignal.timeout(request.timeoutMs),
           redirect: "error",
           cache: "no-store",
         });
