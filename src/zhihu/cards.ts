@@ -136,7 +136,8 @@ function buildSupplementPrompt(input: ExperienceRequest): PromptPair {
 // Normalization with anti-fabrication guards
 // ---------------------------------------------------------------------------
 
-const UNSTATED = /^(无|没有|暂无|不详|未知|未提及|原文未(提及|说明|写|提到).*|原文没有.*|—+|-+)$/;
+// Placeholders and meta remarks such as "原文未提家庭责任" say nothing about the author.
+const UNSTATED = /^(无|没有|暂无|不详|未知|未提及|—+|-+)$|^(原文|文中|作者)(并未|未|没有?)(提|写|说|涉及)/;
 const FABRICATED_EXPERIENCE = /知乎|网友|答主|有人(曾|说|分享|经历)|有位|一位.{0,6}(用户|网友|朋友|学长|学姐|同学)|我认识|亲身经历|他的经历|她的经历/;
 
 const toStrings = (value: unknown): string[] =>

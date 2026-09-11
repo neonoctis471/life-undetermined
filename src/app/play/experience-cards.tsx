@@ -50,11 +50,11 @@ export function ExperiencePanel({ experience }: { experience?: Async<ExperienceR
   const [open, setOpen] = useState(false);
   if (!experience || experience.status === "idle" || experience.status === "error") return null;
   if (experience.status === "ready" && experience.value.cards.length === 0) return null;
-  const fromZhihu = experience.status === "ready" && experience.value.source === "ZHIHU";
+  const supplementOnly = experience.status === "ready" && experience.value.source === "AI_SUPPLEMENT";
   return (
     <div>
       <button aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        💬 不知道怎么处理？{fromZhihu ? "看看别人怎么做过。" : "看看几个参考思路。"}
+        💬 不知道怎么处理？{supplementOnly ? "看看几个参考思路。" : "看看别人怎么做过。"}
       </button>
       {open &&
         (experience.status === "pending" ? (

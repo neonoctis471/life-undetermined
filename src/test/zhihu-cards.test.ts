@@ -80,7 +80,7 @@ describe("card normalization", () => {
             whatTheyDid: "一边学剪辑一边拍视频",
             whatHappened: "第二年年入 50 万",
             similarities: ["都在家里店铺帮忙"],
-            differences: ["原文未提及"],
+            differences: ["原文未提及", "原文未提家庭责任", "文中没有说"],
           },
         ],
       },
