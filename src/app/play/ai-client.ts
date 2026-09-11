@@ -12,6 +12,8 @@ import {
 } from "@/ai/contracts";
 import { ApiErrorSchema, successResponseSchema } from "@/contracts/api";
 
+import { getGameStore } from "./client-store";
+
 const ResponseSchema = successResponseSchema(AiResponseDataSchema);
 
 type AnyRequest = UnderstandIntentRequest | GenerateSituationRequest | ResolveOutcomeRequest | SimulateLifeRequest;
@@ -53,7 +55,8 @@ async function callAi(request: AnyRequest): Promise<Timed<AiResponseData>> {
   try {
     response = await fetch("/api/v1/ai", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      // The random game id only lets server logs add up upstream calls per game.
+      headers: { "Content-Type": "application/json", "X-Game-Id": getGameStore().getState().gameId },
       body: JSON.stringify(request),
     });
   } catch {

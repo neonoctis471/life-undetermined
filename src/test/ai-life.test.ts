@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildFallbackLifeDraft } from "@/ai/fallbacks";
 import { MAX_COMMEMORATIVE_FACTS, MAX_TIMELINE_POINTS, normalizeLifeDraft } from "@/ai/normalize";
-import { runAiOperation } from "@/ai/service";
+import { ATTEMPT_POLICIES, runAiOperation } from "@/ai/service";
 import type { AiProvider } from "@/ai/provider";
 import { LifeComparisonSchema, LifePathSchema } from "@/game-state/contracts";
 
@@ -65,6 +65,13 @@ describe("normalizeLifeDraft", () => {
 });
 
 describe("hedged AI attempts", () => {
+  it("hedges only SIMULATE_LIFE because aborted calls are still billed upstream", () => {
+    expect(ATTEMPT_POLICIES.UNDERSTAND_INTENT.hedgeAfterMs).toBeNull();
+    expect(ATTEMPT_POLICIES.GENERATE_SITUATION.hedgeAfterMs).toBeNull();
+    expect(ATTEMPT_POLICIES.RESOLVE_OUTCOME.hedgeAfterMs).toBeNull();
+    expect(ATTEMPT_POLICIES.SIMULATE_LIFE.hedgeAfterMs).toBeGreaterThan(0);
+  });
+
   const request = {
     operation: "UNDERSTAND_INTENT" as const,
     input: { rawText: "回家帮忙，同时拍视频。", selectedPlans: [] },

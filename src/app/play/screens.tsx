@@ -197,10 +197,38 @@ export function yearsUntilYear4(facts: readonly Fact[]): TimeStep[] {
   ];
 }
 
+/** Shown when the player arrives before the prefetched Situation (e.g. a quick confirm). */
+function SituationPending(props: { chapter: "DAY_8" | "MONTH_7"; facts: readonly Fact[]; firstStep?: string }) {
+  const lines =
+    props.chapter === "DAY_8"
+      ? [
+          props.firstStep ? `你开始了第一步：${props.firstStep}。` : "你按自己的打算迈出了第一步。",
+          "有些事比想象中顺，有些事没那么顺。",
+          "毕业后的第 8 天……",
+        ]
+      : ["几个月过去了。", ...props.facts.slice(-2).map(({ statement }) => statement), "毕业后的第 7 个月……"];
+  return (
+    <div className="card">
+      <div className="progress">
+        <span style={{ animationDuration: "25s" }} />
+      </div>
+      {lines.map((line, index) => (
+        <p key={`${index}-${line}`} className="beat muted" style={delay(0.4 + index * 1.6)}>
+          {line}
+        </p>
+      ))}
+      <p className="beat" style={delay(0.4 + lines.length * 1.6)}>
+        <span className="pulse">……</span>
+      </p>
+    </div>
+  );
+}
+
 export function Possibilities(props: {
   chapter: MainChapter;
   slot: Async<Timed<GenerateSituationResponseData>>;
   facts: readonly Fact[];
+  firstStep?: string;
   onChoose(kind: "MOMENTUM" | "UNEXPECTED"): void;
   onGenerate(): void;
 }) {
@@ -217,7 +245,7 @@ export function Possibilities(props: {
         (props.chapter === "YEAR_4" ? (
           <TimeAdvance steps={yearsUntilYear4(props.facts)} caption="时间开始加速……" />
         ) : (
-          <p className="pulse">生活正在展开……</p>
+          <SituationPending chapter={props.chapter} facts={props.facts} firstStep={props.firstStep} />
         ))}
       {slot.status === "error" && (
         <>

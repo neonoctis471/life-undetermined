@@ -28,17 +28,20 @@ export interface AttemptPolicy {
   /** Shared budget for both attempts; must stay under the route's maxDuration (60s). */
   budgetMs: number;
   /**
-   * The relay occasionally hangs a request until timeout. If the first attempt
-   * is still running after this long, a second one starts in parallel and the
-   * first valid answer wins. Set just above the operation's normal latency.
+   * If the first attempt is still running after this long, a second one starts
+   * in parallel and the first valid answer wins. null disables hedging: the
+   * retry only happens after the first attempt has failed.
+   *
+   * Aborting the losing call only stops local waiting; the relay still bills
+   * it. Hedging is therefore reserved for the long, once-per-game SIMULATE_LIFE.
    */
-  hedgeAfterMs: number;
+  hedgeAfterMs: number | null;
 }
 
 export const ATTEMPT_POLICIES: Record<AiOperation, AttemptPolicy> = {
-  UNDERSTAND_INTENT: { callTimeoutMs: 25_000, budgetMs: 45_000, hedgeAfterMs: 8_000 },
-  GENERATE_SITUATION: { callTimeoutMs: 25_000, budgetMs: 45_000, hedgeAfterMs: 17_000 },
-  RESOLVE_OUTCOME: { callTimeoutMs: 25_000, budgetMs: 45_000, hedgeAfterMs: 11_000 },
+  UNDERSTAND_INTENT: { callTimeoutMs: 25_000, budgetMs: 45_000, hedgeAfterMs: null },
+  GENERATE_SITUATION: { callTimeoutMs: 25_000, budgetMs: 45_000, hedgeAfterMs: null },
+  RESOLVE_OUTCOME: { callTimeoutMs: 25_000, budgetMs: 45_000, hedgeAfterMs: null },
   SIMULATE_LIFE: { callTimeoutMs: 45_000, budgetMs: 55_000, hedgeAfterMs: 28_000 },
 };
 
@@ -47,7 +50,7 @@ const MAX_ATTEMPTS = 2;
 
 export type AiAttemptOutcome = "ok" | "invalid_output" | "timeout" | "upstream_error" | "internal_error" | "cancelled";
 
-/** Log events carry no prompt, player text, model output or credentials. */
+/** One event per upstream call. Carries no prompt, player text, model output or credentials. */
 export interface AiLogEvent {
   operation: AiOperation;
   attempt: number;
@@ -68,7 +71,7 @@ export async function runAiOperation(request: AiRequest, deps: AiServiceDependen
   switch (request.operation) {
     case "UNDERSTAND_INTENT": {
       const context = { rawText: request.input.rawText, selectedPlans: request.input.selectedPlans };
-      const generated = await generateWithHedge(
+      const generated = await generateWithRetry(
         request.operation,
         { tier: "FAST", ...buildUnderstandIntentPrompt(context), maxTokens: 800 },
         (raw) => normalizeIntentDraft(raw, context),
@@ -85,7 +88,7 @@ export async function runAiOperation(request: AiRequest, deps: AiServiceDependen
     case "GENERATE_SITUATION": {
       const { chapter, intent, facts, previousChoices } = request.input;
       const context = { chapter, facts };
-      const generated = await generateWithHedge(
+      const generated = await generateWithRetry(
         request.operation,
         { tier: "FAST", ...buildGenerateSituationPrompt({ chapter, intent, facts, previousChoices }), maxTokens: 1_600 },
         (raw) => normalizeSituationDraft(raw, context, deps),
@@ -112,7 +115,7 @@ export async function runAiOperation(request: AiRequest, deps: AiServiceDependen
         isCustomAction: decision.selectedActionKind === "CUSTOM_PLACEHOLDER",
         facts,
       });
-      const generated = await generateWithHedge(
+      const generated = await generateWithRetry(
         request.operation,
         { tier: "FAST", ...prompt, maxTokens: 900 },
         (raw) => normalizeOutcomeDraft(raw, { ...context, validation: "ACCEPTED" }, deps),
@@ -129,7 +132,7 @@ export async function runAiOperation(request: AiRequest, deps: AiServiceDependen
     case "SIMULATE_LIFE": {
       const { input } = request;
       const context = { mode: input.mode, facts: input.facts };
-      const generated = await generateWithHedge(
+      const generated = await generateWithRetry(
         request.operation,
         { tier: "DEEP", ...buildSimulateLifePrompt(input), maxTokens: input.mode === "COUNTERFACTUAL" ? 2_200 : 1_800 },
         (raw) => normalizeLifeDraft(raw, context),
@@ -151,11 +154,12 @@ export async function runAiOperation(request: AiRequest, deps: AiServiceDependen
 }
 
 /**
- * Runs the first attempt, starts a second one if the first fails early or is
- * still running after hedgeAfterMs, and returns the first valid result. The
- * losing call is aborted. null means both attempts failed: use the fallback.
+ * Runs the first attempt and at most one more: immediately after an early
+ * failure, or in parallel once hedgeAfterMs passes (when hedging is enabled).
+ * The first valid result wins and any other call is aborted. null means both
+ * attempts failed: use the fallback.
  */
-async function generateWithHedge<T>(
+async function generateWithRetry<T>(
   operation: AiOperation,
   completion: Omit<AiCompletionRequest, "timeoutMs" | "signal">,
   normalize: (raw: unknown) => T,
@@ -208,9 +212,12 @@ async function generateWithHedge<T>(
         else if (failed >= launched) finish(null);
       });
     };
-    const hedgeTimer = setTimeout(() => {
-      if (!settled && launched < MAX_ATTEMPTS) launch();
-    }, policy.hedgeAfterMs);
+    const hedgeTimer =
+      policy.hedgeAfterMs === null
+        ? undefined
+        : setTimeout(() => {
+            if (!settled && launched < MAX_ATTEMPTS) launch();
+          }, policy.hedgeAfterMs);
     launch();
   });
 }

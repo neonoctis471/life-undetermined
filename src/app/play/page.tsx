@@ -389,7 +389,7 @@ export default function PlayPage() {
         <Possibilities
           chapter="DAY_8"
           slot={situations.DAY_8 ?? IDLE}
-          facts={gameState.facts}
+          facts={gameState.facts} firstStep={gameState.intent?.currentActions[0]}
           onChoose={choosePossibility}
           onGenerate={() => ensureSituation("DAY_8")}
         />
@@ -407,7 +407,7 @@ export default function PlayPage() {
           <Possibilities
             chapter={chapter}
             slot={situations[chapter] ?? IDLE}
-            facts={gameState.facts}
+            facts={gameState.facts} firstStep={gameState.intent?.currentActions[0]}
             onChoose={choosePossibility}
             onGenerate={() => ensureSituation(chapter)}
           />
