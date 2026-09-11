@@ -1394,14 +1394,14 @@ describe("persistent game state store", () => {
     expect(restored.getState().currentStage).toBe("INTENT_CONFIRMED");
   });
 
-  it("resets only the game save and immediately persists a fresh game", () => {
+  it("atomically overwrites the game save with a fresh game without clearing first", () => {
     const storage = memoryGameStorage();
     let index = 0;
     const store = createGameStateStore({ storage, engine: { createId: () => gameIds[index++]!, now: () => timestamp } });
 
     const fresh = store.reset();
 
-    expect(storage.cleared).toBe(1);
+    expect(storage.cleared).toBe(0);
     expect(fresh.gameId).toBe(gameIds[1]);
     expect(fresh.currentStage).toBe("CREATED");
   });
@@ -1467,10 +1467,10 @@ export function createGameStateStore(options: {
       return state;
     },
     reset() {
-      options.storage.clear();
-      state = createInitialGameState(options.engine);
+      const fresh = createInitialGameState(options.engine);
+      options.storage.save(fresh);
+      state = fresh;
       restoreStatus = "created";
-      options.storage.save(state);
       publish();
       return state;
     },
@@ -1482,7 +1482,7 @@ export function createGameStateStore(options: {
 }
 ```
 
-Important atomicity rule: assign `state = next` only after `storage.save(next)` succeeds. Add a test whose `save` throws and assert that `getState()` still returns the pre-dispatch state and listeners were not notified.
+Important atomicity rule: assign `state = next` only after `storage.save(next)` succeeds. Reset follows the same rule: build and save the fresh state by overwriting the fixed key, then update memory and notify; it does not call `clear()`. Add tests whose `save` throws and assert that dispatch/reset preserve the prior in-memory and persisted state and do not notify listeners.
 
 - [x] **Step 4: Export the supported public surface**
 
@@ -1598,3 +1598,13 @@ Expected: working tree is clean and the contract, engine, storage, store and acc
 - `git status --short` immediately after acceptance commit `7176bd4` — exit 0; no output.
 - `git diff HEAD^ --check` immediately after acceptance commit `7176bd4` — exit 0; no output.
 - `git log --oneline -7` immediately after acceptance commit included `7176bd4`, `0d35408`, `70164c5`, `0af9ea6`, `18b2d13`, `417ab9c`, and `608fbdf` (acceptance plus Tasks 1–4 commits).
+
+## Final Review Correction Record
+
+- Reset semantics were corrected to create a fresh state, overwrite the fixed game key, and only then replace in-memory state and notify subscribers. Reset never calls `GameStorage.clear()`; a failed save preserves the prior state and notification count.
+- `npm run test:run -- src/test/game-state-contracts.test.ts src/test/game-state-engine.test.ts src/test/game-state-storage.test.ts src/test/game-state-store.test.ts` — exit 0; 4 files and 90 tests passed.
+- `npm run test:run -- src/test/api-env-contracts.test.ts src/test/health-route.test.ts` — exit 0; 2 files and 8 tests passed, including the strict `retryable` API error field and the unchanged health success envelope.
+- `npm run test:run` — exit 0; 9 files and 137 tests passed.
+- `npm run typecheck` — exit 0; TypeScript completed with no reported errors.
+- `npm run lint` — exit 0; ESLint completed with no reported errors or warnings.
+- `npm run build` — exit 0; Next.js 16.3.4 compiled successfully and generated `/_not-found` and `/api/v1/health`; build-generated `next-env.d.ts` and `tsconfig.json` changes were removed from the tracked diff afterward.

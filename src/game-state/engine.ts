@@ -120,6 +120,9 @@ export function transitionGameState(
       }
       assertUnique(state.decisions.map(({ id }) => id), decision.id);
       let keyDecisionSnapshot = state.keyDecisionSnapshot;
+      if (!decision.isKeyDecision && !keyDecisionSnapshot && state.decisions.length === MAX_MAIN_SITUATIONS - 1) {
+        throw new GameStateError("KEY_SNAPSHOT_REQUIRED", "the third Decision must capture the missing key Snapshot");
+      }
       if (decision.isKeyDecision) {
         if (keyDecisionSnapshot) {
           throw new GameStateError("KEY_DECISION_ALREADY_EXISTS", "only one key Decision is allowed");
@@ -160,13 +163,21 @@ export function transitionGameState(
       assertUnique(state.outcomes.map(({ id }) => id), outcome.id);
       const decisionIds = new Set(state.decisions.map(({ id }) => id));
       const factIds = new Set(state.facts.map(({ id }) => id));
+      const currentSituation = state.situations.at(-1)!.situation;
       for (const proposal of outcome.addedFacts) {
+        if (currentSituation.forbiddenFactKinds.includes(proposal.kind)) {
+          throw new GameStateError("INVALID_STATE", "Fact kind is forbidden by the current Situation");
+        }
         if (proposal.causedByDecisionIds.some((id) => !decisionIds.has(id))) {
           throw new GameStateError("INVALID_DECISION_REFERENCE", "Fact proposal references an unknown Decision");
         }
         if (proposal.dependsOnFactIds.some((id) => !factIds.has(id))) {
           throw new GameStateError("INVALID_FACT_REFERENCE", "Fact proposal references an unknown Fact");
         }
+        if (proposal.supersedesFactId && !factIds.has(proposal.supersedesFactId)) {
+          throw new GameStateError("INVALID_FACT_REFERENCE", "Fact proposal supersedes an unknown Fact");
+        }
+        validateCausalEvidence(proposal);
       }
       const generatedFactIds = new Set(factIds);
       const addedFacts = outcome.addedFacts.map((proposal) => {
@@ -246,4 +257,23 @@ function sameIntent(left: Intent, right: Intent | null): boolean {
 
 function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function validateCausalEvidence(proposal: ResolvedOutcome["addedFacts"][number]): void {
+  const hasDecision = proposal.causedByDecisionIds.length > 0;
+  const hasPriorFact = proposal.dependsOnFactIds.length > 0;
+  const hasExternalEvent = proposal.externalEventId !== undefined;
+  if (proposal.causalReasons.includes("PLAYER_DECISION") && !hasDecision) {
+    throw new GameStateError("INVALID_STATE", "PLAYER_DECISION requires Decision evidence");
+  }
+  if (proposal.causalReasons.includes("PRIOR_FACT") && !hasPriorFact) {
+    throw new GameStateError("INVALID_STATE", "PRIOR_FACT requires prior Fact evidence");
+  }
+  if (proposal.causalReasons.includes("EXTERNAL_EVENT") && !hasExternalEvent) {
+    throw new GameStateError("INVALID_STATE", "EXTERNAL_EVENT requires an external event id");
+  }
+  const evidenceKinds = Number(hasDecision) + Number(hasPriorFact) + Number(hasExternalEvent);
+  if (proposal.causalReasons.includes("MIXED_CAUSE") && evidenceKinds < 2) {
+    throw new GameStateError("INVALID_STATE", "MIXED_CAUSE requires at least two evidence kinds");
+  }
 }

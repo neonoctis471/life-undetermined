@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { Decision, Intent, ResolvedOutcome, Situation, Snapshot } from "@/contracts/game";
 import { GameStateError } from "@/game-state/errors";
+import { GameStateSchema, type GameState } from "@/game-state/contracts";
+import { createGameStorage } from "@/game-state/storage";
 import {
   createInitialGameState,
   transitionGameState,
@@ -414,7 +416,7 @@ describe("lightweight game state engine", () => {
     for (const [index, chapter] of (["DAY_8", "MONTH_7", "YEAR_4"] as const).entries()) {
       const triggerFactIds = index === 0 ? [] : [state.facts.at(-1)!.id];
       const situation = makeDistinctSituation(index, chapter, triggerFactIds);
-      const decision = makeDistinctDecision(index, situation);
+      const decision = makeDistinctDecision(index, situation, index === 2);
       const outcome = makeDistinctOutcome(index, decision);
 
       state = transitionGameState(
@@ -422,7 +424,17 @@ describe("lightweight game state engine", () => {
         { type: "ADD_SITUATION", situation, selectedPossibilityId: situation.possibilities[0]!.id },
         deps,
       );
-      state = transitionGameState(state, { type: "RECORD_DECISION", decision }, deps);
+      if (index === 2) {
+        const before = structuredClone(state);
+        expect(() => transitionGameState(state, {
+          type: "RECORD_DECISION", decision: { ...decision, isKeyDecision: false },
+        }, deps)).toThrowError(expect.objectContaining({ code: "KEY_SNAPSHOT_REQUIRED" }));
+        expect(state).toEqual(before);
+      }
+      state = transitionGameState(state, {
+        type: "RECORD_DECISION", decision,
+        ...(decision.isKeyDecision ? { keyDecisionSnapshot: makeSnapshotFor(state, decision) } : {}),
+      }, deps);
       state = transitionGameState(state, { type: "APPLY_OUTCOME", outcome }, deps);
     }
 
@@ -437,6 +449,11 @@ describe("lightweight game state engine", () => {
         deps,
       ),
     ).toThrowError(expect.objectContaining({ code: "INVALID_STAGE" }));
+    state = transitionGameState(state, { type: "SET_FIVE_YEAR_LIFE", life: makeLifePath("original") }, deps);
+    state = transitionGameState(state, { type: "OPEN_FORK" }, deps);
+    state = transitionGameState(state, { type: "SET_PARALLEL_LIFE", life: makeLifePath("parallel") }, deps);
+    state = transitionGameState(state, { type: "SET_COMPARISON", comparison: { changedByDecision: [], unchanged: [], external: [] } }, deps);
+    expect(transitionGameState(state, { type: "COMPLETE" }, deps).currentStage).toBe("COMPLETED");
   });
 
   it("captures one key Snapshot and completes one parallel comparison", () => {
@@ -470,6 +487,54 @@ describe("lightweight game state engine", () => {
     expect(state.fiveYearLife).toEqual(originalLife);
     expect(state.parallelLife).toEqual(parallelLife);
     expect(state.comparison).toEqual(comparison);
+  });
+
+  const corruptions: [string, (state: GameState) => void][] = [
+    ["missing Intent", (s) => { s.intent = null; }],
+    ["wrong chapter order", (s) => { s.situations[1]!.situation.chapter = "YEAR_4"; }],
+    ["missing Decision", (s) => { s.decisions.pop(); }],
+    ["missing Outcome", (s) => { s.outcomes.pop(); }],
+    ["missing Situation", (s) => { s.situations.pop(); }],
+    ["duplicate Situation", (s) => { s.situations[1]!.situation.id = s.situations[0]!.situation.id; }],
+    ["duplicate Decision", (s) => { s.decisions[1]!.id = s.decisions[0]!.id; }],
+    ["duplicate Outcome", (s) => { s.outcomes[1]!.id = s.outcomes[0]!.id; }],
+    ["duplicate Fact", (s) => { s.facts[1]!.id = s.facts[0]!.id; }],
+    ["dangling Decision Situation", (s) => { s.decisions[0]!.situationId = ids.fact; }],
+    ["wrong Decision action", (s) => { s.decisions[0]!.selectedActionId = ids.fact; }],
+    ["dangling Outcome Decision", (s) => { s.outcomes[0]!.decisionId = ids.fact; }],
+    ["dangling trigger Fact", (s) => { s.situations[1]!.situation.triggerFactIds = [ids.fact]; }],
+    ["future trigger Fact", (s) => { s.situations[1]!.situation.triggerFactIds = [s.facts[2]!.id]; }],
+    ["missing later trigger", (s) => { s.situations[1]!.situation.triggerFactIds = []; }],
+    ["dangling Fact Decision", (s) => { s.facts[0]!.causedByDecisionIds = [ids.fact]; }],
+    ["dangling Fact dependency", (s) => { s.facts[0]!.dependsOnFactIds = [ids.fact]; }],
+    ["dangling superseded Fact", (s) => { s.facts[0]!.supersedesFactId = ids.fact; }],
+    ["missing authoritative Fact", (s) => { s.facts.pop(); }],
+    ["missing key Snapshot", (s) => { s.keyDecisionSnapshot = null; }],
+    ["duplicate key Decision", (s) => { s.decisions[1]!.isKeyDecision = true; }],
+    ["Snapshot wrong game", (s) => { s.keyDecisionSnapshot!.gameId = ids.fact; }],
+    ["Snapshot wrong Decision", (s) => { s.keyDecisionSnapshot!.keyDecisionId = ids.fact; }],
+    ["Snapshot wrong Intent", (s) => { s.keyDecisionSnapshot!.intent.rawText = "other"; }],
+    ["Snapshot future Fact", (s) => { s.keyDecisionSnapshot!.activeFactIds = [s.facts[0]!.id]; }],
+    ["missing original life", (s) => { s.fiveYearLife = null; }],
+    ["premature parallel life", (s) => { s.parallelLife = makeLifePath("parallel"); }],
+    ["premature comparison", (s) => { s.comparison = { changedByDecision: [], unchanged: [], external: [] }; }],
+    ["incomplete comparison stage", (s) => { s.currentStage = "COMPARISON_READY"; }],
+    ["incomplete completed stage", (s) => { s.currentStage = "COMPLETED"; }],
+  ];
+
+  it.each(corruptions)("rejects %s in contracts, restoration and engine input", (_name, corrupt) => {
+    const { stateAtSituation, keyDecision, snapshot, deps } = makeStateAtKeyDecision();
+    let state = transitionGameState(stateAtSituation, { type: "RECORD_DECISION", decision: keyDecision, keyDecisionSnapshot: snapshot }, deps);
+    state = finishRemainingLoops(state, deps);
+    state = transitionGameState(state, { type: "SET_FIVE_YEAR_LIFE", life: makeLifePath("original") }, deps);
+    expect(GameStateSchema.safeParse(state).success).toBe(true);
+    corrupt(state);
+    expect(GameStateSchema.safeParse(state).success).toBe(false);
+    expect(() => transitionGameState(state, { type: "OPEN_FORK" }, deps)).toThrowError(expect.objectContaining({ code: "INVALID_STATE" }));
+    let raw: string | null = JSON.stringify(state);
+    const storage = createGameStorage({ getItem: () => raw, setItem: () => undefined, removeItem: () => { raw = null; } });
+    expect(storage.load()).toEqual({ status: "discarded", reason: "INVALID_SCHEMA" });
+    expect(raw).toBeNull();
   });
 
   it("rejects a key Snapshot whose Intent differs from the confirmed Intent", () => {
@@ -585,6 +650,88 @@ describe("lightweight game state engine", () => {
         deps,
       ),
     ).toThrowError(expect.objectContaining({ code: "INVALID_FACT_REFERENCE" }));
+  });
+
+  it("rejects a Fact kind forbidden by the current Situation without mutating state", () => {
+    const { stateAtDecision, deps } = makeStateAtDecision();
+    const forbiddenState = structuredClone(stateAtDecision);
+    forbiddenState.situations[0]!.situation.forbiddenFactKinds = ["ACTIVITY"];
+    const before = structuredClone(forbiddenState);
+    let generatedIds = 0;
+
+    expect(() => transitionGameState(
+      forbiddenState,
+      { type: "APPLY_OUTCOME", outcome: makeDistinctOutcome(0, forbiddenState.decisions[0]!) },
+      { ...deps, createId: () => { generatedIds += 1; return loops[0]!.fact; } },
+    )).toThrowError(expect.objectContaining({ code: "INVALID_STATE" }));
+    expect(generatedIds).toBe(0);
+    expect(forbiddenState).toEqual(before);
+  });
+
+  it("rejects a Fact proposal that supersedes an unknown Fact without mutating state", () => {
+    const { stateAtDecision, deps } = makeStateAtDecision();
+    const proposal = makeDistinctOutcome(0, stateAtDecision.decisions[0]!);
+    proposal.addedFacts[0]!.supersedesFactId = ids.fact;
+    const before = structuredClone(stateAtDecision);
+    let generatedIds = 0;
+
+    expect(() => transitionGameState(
+      stateAtDecision,
+      { type: "APPLY_OUTCOME", outcome: proposal },
+      { ...deps, createId: () => { generatedIds += 1; return loops[0]!.fact; } },
+    )).toThrowError(expect.objectContaining({ code: "INVALID_FACT_REFERENCE" }));
+    expect(generatedIds).toBe(0);
+    expect(stateAtDecision).toEqual(before);
+  });
+
+  it.each([
+    ["PLAYER_DECISION", { causedByDecisionIds: [] }],
+    ["PRIOR_FACT", { causedByDecisionIds: [], dependsOnFactIds: [] }],
+    ["EXTERNAL_EVENT", { causedByDecisionIds: [], externalEventId: undefined }],
+    ["MIXED_CAUSE", { causedByDecisionIds: [loops[0]!.decision], dependsOnFactIds: [], externalEventId: undefined }],
+  ] satisfies [
+    ResolvedOutcome["addedFacts"][number]["causalReasons"][number],
+    Partial<ResolvedOutcome["addedFacts"][number]>,
+  ][])("rejects %s without its required causal evidence before creating Facts", (reason, evidence) => {
+    const { stateAtDecision, deps } = makeStateAtDecision();
+    const outcomeWithInvalidEvidence = makeDistinctOutcome(0, stateAtDecision.decisions[0]!);
+    outcomeWithInvalidEvidence.addedFacts = [{
+      ...outcomeWithInvalidEvidence.addedFacts[0]!,
+      causalReasons: [reason],
+      ...evidence,
+    }];
+    const before = structuredClone(stateAtDecision);
+    let generatedIds = 0;
+
+    expect(() => transitionGameState(
+      stateAtDecision,
+      { type: "APPLY_OUTCOME", outcome: outcomeWithInvalidEvidence },
+      { ...deps, createId: () => { generatedIds += 1; return loops[0]!.fact; } },
+    )).toThrowError(expect.objectContaining({ code: "INVALID_STATE" }));
+    expect(generatedIds).toBe(0);
+    expect(stateAtDecision).toEqual(before);
+  });
+
+  it("accepts a mixed-cause Fact with two kinds of causal evidence", () => {
+    const { stateAtDecision, deps } = makeStateAtDecision();
+    const mixedOutcome = makeDistinctOutcome(0, stateAtDecision.decisions[0]!);
+    mixedOutcome.addedFacts = [{
+      ...mixedOutcome.addedFacts[0]!,
+      causalReasons: ["MIXED_CAUSE"],
+      externalEventId: "50000000-0000-4000-8000-000000000001",
+    }];
+
+    const next = transitionGameState(
+      stateAtDecision,
+      { type: "APPLY_OUTCOME", outcome: mixedOutcome },
+      deps,
+    );
+
+    expect(next.facts[0]).toMatchObject({
+      causalReasons: ["MIXED_CAUSE"],
+      causedByDecisionIds: [loops[0]!.decision],
+      externalEventId: "50000000-0000-4000-8000-000000000001",
+    });
   });
 
   it("rejects generated Fact IDs that collide with existing Facts", () => {

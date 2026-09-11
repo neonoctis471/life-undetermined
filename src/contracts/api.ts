@@ -40,7 +40,7 @@ export const ApiErrorSchema = z.object({
     code: ApiErrorCodeSchema,
     message: z.string().trim().min(1).max(300),
     requestId: IdSchema,
-    recoverable: z.boolean(),
+    retryable: z.boolean(),
   }).strict(),
 }).strict();
 

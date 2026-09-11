@@ -32,10 +32,27 @@ describe("API response contracts", () => {
           code: "RANDOM_PROVIDER_FAILURE",
           message: "failed",
           requestId: "11111111-1111-4111-8111-111111111111",
-          recoverable: true,
+          retryable: true,
         },
       }).success,
     ).toBe(false);
+  });
+
+  it("uses retryable as the only public API retry field", () => {
+    const error = {
+      code: "AI_TIMEOUT",
+      message: "please retry",
+      requestId: "11111111-1111-4111-8111-111111111111",
+      retryable: true,
+    };
+
+    expect(ApiErrorSchema.parse({ error })).toEqual({ error });
+    expect(ApiErrorSchema.safeParse({
+      error: { ...error, retryable: undefined, recoverable: true },
+    }).success).toBe(false);
+    expect(ApiErrorSchema.safeParse({
+      error: { ...error, recoverable: true },
+    }).success).toBe(false);
   });
 });
 

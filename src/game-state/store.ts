@@ -28,37 +28,48 @@ export function createGameStateStore(options: {
     : loaded.status === "discarded"
       ? "discarded"
       : "created";
-  let state = loaded.status === "restored" ? loaded.state : createInitialGameState(options.engine);
+  let state = loaded.status === "restored" ? cloneState(loaded.state) : createInitialGameState(options.engine);
   const listeners = new Set<GameStateListener>();
 
-  if (loaded.status !== "restored") options.storage.save(state);
+  if (loaded.status !== "restored") options.storage.save(cloneState(state));
 
-  const publish = () => listeners.forEach((listener) => listener(state));
+  const publish = () => {
+    for (const listener of listeners) {
+      try {
+        listener(cloneState(state));
+      } catch {
+        // State has already committed; subscriber failures are isolated.
+      }
+    }
+  };
 
   return {
     get restoreStatus() {
       return restoreStatus;
     },
-    getState: () => state,
+    getState: () => cloneState(state),
     dispatch(action) {
       const next = transitionGameState(state, action, options.engine);
-      options.storage.save(next);
+      options.storage.save(cloneState(next));
       state = next;
       publish();
-      return state;
+      return cloneState(state);
     },
     reset() {
-      options.storage.clear();
       const fresh = createInitialGameState(options.engine);
-      options.storage.save(fresh);
+      options.storage.save(cloneState(fresh));
       state = fresh;
       restoreStatus = "created";
       publish();
-      return state;
+      return cloneState(state);
     },
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
   };
+}
+
+function cloneState(state: GameState): GameState {
+  return structuredClone(state);
 }

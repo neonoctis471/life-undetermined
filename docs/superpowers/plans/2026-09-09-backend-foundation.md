@@ -1016,7 +1016,7 @@ describe("API response contracts", () => {
           code: "RANDOM_PROVIDER_FAILURE",
           message: "failed",
           requestId: "11111111-1111-4111-8111-111111111111",
-          recoverable: true,
+          retryable: true,
         },
       }).success,
     ).toBe(false);
@@ -1101,7 +1101,7 @@ export const ApiErrorSchema = z.object({
     code: ApiErrorCodeSchema,
     message: z.string().trim().min(1).max(300),
     requestId: IdSchema,
-    recoverable: z.boolean(),
+    retryable: z.boolean(),
   }).strict(),
 }).strict();
 

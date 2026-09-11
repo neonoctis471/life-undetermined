@@ -75,14 +75,15 @@ describe("persistent game state store", () => {
     expect(restored.getState().currentStage).toBe("INTENT_CONFIRMED");
   });
 
-  it("resets only the game save and immediately persists a fresh game", () => {
+  it("atomically overwrites the game save with a fresh game without clearing first", () => {
     const storage = memoryGameStorage();
     let index = 0;
     const store = createGameStateStore({ storage, engine: { createId: () => gameIds[index++]!, now: () => timestamp } });
 
     const fresh = store.reset();
 
-    expect(storage.cleared).toBe(1);
+    expect(storage.cleared).toBe(0);
+    expect(storage.saved).toHaveLength(2);
     expect(fresh.gameId).toBe(gameIds[1]);
     expect(fresh.currentStage).toBe("CREATED");
   });
@@ -98,7 +99,76 @@ describe("persistent game state store", () => {
     };
 
     expect(() => store.dispatch({ type: "CONFIRM_INTENT", intent })).toThrow("storage unavailable");
-    expect(store.getState()).toBe(before);
+    expect(store.getState()).toEqual(before);
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("keeps the old save and state and does not notify when reset persistence fails", () => {
+    const storage = memoryGameStorage();
+    let index = 0;
+    const store = createGameStateStore({ storage, engine: { createId: () => gameIds[index++]!, now: () => timestamp } });
+    store.dispatch({ type: "CONFIRM_INTENT", intent });
+    const before = store.getState();
+    const persistedBefore = storage.load();
+    const listener = vi.fn();
+    store.subscribe(listener);
+    storage.save = () => { throw new Error("storage unavailable"); };
+
+    expect(() => store.reset()).toThrow("storage unavailable");
+    expect(store.getState()).toEqual(before);
+    expect(storage.load()).toEqual(persistedBefore);
+    expect(storage.cleared).toBe(0);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("isolates internal state from all outward state values", () => {
+    const storage = memoryGameStorage();
+    let index = 0;
+    const store = createGameStateStore({ storage, engine: { createId: () => gameIds[index++]!, now: () => timestamp } });
+    let subscriberValue: ReturnType<typeof store.getState> | undefined;
+    store.subscribe((value) => {
+      subscriberValue = value;
+      value.intent!.rawText = "subscriber mutation";
+    });
+
+    const dispatched = store.dispatch({ type: "CONFIRM_INTENT", intent });
+    dispatched.intent!.rawText = "dispatch mutation";
+    const read = store.getState();
+    read.intent!.rawText = "getState mutation";
+
+    expect(subscriberValue?.intent?.rawText).toBe("subscriber mutation");
+    expect(store.getState().intent?.rawText).toBe(intent.rawText);
+
+    const reset = store.reset();
+    reset.gameId = gameIds[0]!;
+    expect(store.getState().gameId).toBe(gameIds[1]);
+  });
+
+  it("does not expose internal state to a mutating storage save implementation", () => {
+    const storage = memoryGameStorage();
+    const originalSave = storage.save.bind(storage);
+    storage.save = (value) => {
+      originalSave(value);
+      value.gameId = gameIds[1]!;
+    };
+
+    const store = createGameStateStore({ storage, engine: { createId: () => gameIds[0]!, now: () => timestamp } });
+    expect(store.getState().gameId).toBe(gameIds[0]);
+
+    const dispatched = store.dispatch({ type: "CONFIRM_INTENT", intent });
+    expect(dispatched.gameId).toBe(gameIds[0]);
+    expect(store.getState().gameId).toBe(gameIds[0]);
+  });
+
+  it("isolates listener failures and still notifies later subscribers after commit", () => {
+    const storage = memoryGameStorage();
+    const store = createGameStateStore({ storage, engine: { createId: () => gameIds[0]!, now: () => timestamp } });
+    const succeedingListener = vi.fn();
+    store.subscribe(() => { throw new Error("listener failed"); });
+    store.subscribe(succeedingListener);
+
+    expect(() => store.dispatch({ type: "CONFIRM_INTENT", intent })).not.toThrow();
+    expect(store.getState().currentStage).toBe("INTENT_CONFIRMED");
+    expect(succeedingListener).toHaveBeenCalledOnce();
   });
 });

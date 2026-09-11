@@ -64,6 +64,10 @@ describe("lightweight game state contracts", () => {
     expect(GameStateSchema.parse(emptyState)).toEqual(emptyState);
   });
 
+  it.each(["INTENT_CONFIRMED", "SITUATION_READY", "DECISION_RECORDED", "OUTCOME_RESOLVED", "LONG_TERM_READY", "REUNION_READY", "FORK_READY", "COMPARISON_READY", "COMPLETED"])("rejects empty history at %s", (currentStage) => {
+    expect(GameStateSchema.safeParse({ ...emptyState, currentStage }).success).toBe(false);
+  });
+
   it("rejects incompatible schema versions and unknown fields", () => {
     expect(GameStateSchema.safeParse({ ...emptyState, schemaVersion: 2 }).success).toBe(false);
     expect(GameStateSchema.safeParse({ ...emptyState, secret: "must-not-exist" }).success).toBe(false);
