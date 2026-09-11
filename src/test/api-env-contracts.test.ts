@@ -62,10 +62,14 @@ describe("server-only environment contracts", () => {
       getAiEnvironment({
         OPENAI_BASE_URL: "https://api.example.com",
         OPENAI_API_KEY: "  test-key  ",
+        OPENAI_MODEL_FAST: " fast-model ",
+        OPENAI_MODEL_DEEP: "deep-model",
       }),
     ).toEqual({
       OPENAI_BASE_URL: "https://api.example.com",
       OPENAI_API_KEY: "test-key",
+      OPENAI_MODEL_FAST: "fast-model",
+      OPENAI_MODEL_DEEP: "deep-model",
     });
 
     expect(
@@ -98,13 +102,27 @@ describe("server-only environment contracts", () => {
       getAiEnvironment({
         OPENAI_BASE_URL: "https://api.example.com",
         OPENAI_API_KEY: "test-key",
+        OPENAI_MODEL_FAST: "fast-model",
+        OPENAI_MODEL_DEEP: "deep-model",
         PRIVATE_INTERNAL_TOKEN: "private-value",
         NEXT_PUBLIC_OPENAI_API_KEY: "public-lookalike",
+        NEXT_PUBLIC_OPENAI_MODEL_FAST: "public-lookalike",
       }),
     ).toEqual({
       OPENAI_BASE_URL: "https://api.example.com",
       OPENAI_API_KEY: "test-key",
+      OPENAI_MODEL_FAST: "fast-model",
+      OPENAI_MODEL_DEEP: "deep-model",
     });
+  });
+
+  it("requires both server-only model names", () => {
+    const base = { OPENAI_BASE_URL: "https://api.example.com", OPENAI_API_KEY: "test-key" };
+    expect(() => getAiEnvironment({ ...base, OPENAI_MODEL_FAST: "fast-model" })).toThrow();
+    expect(() => getAiEnvironment({ ...base, OPENAI_MODEL_FAST: "  ", OPENAI_MODEL_DEEP: "deep-model" })).toThrow();
+    expect(() =>
+      getAiEnvironment({ ...base, NEXT_PUBLIC_OPENAI_MODEL_FAST: "fast", NEXT_PUBLIC_OPENAI_MODEL_DEEP: "deep" }),
+    ).toThrow();
 
     expect(
       getZhihuEnvironment({

@@ -5,6 +5,8 @@ import { z } from "zod";
 const AiEnvironmentSchema = z.object({
   OPENAI_BASE_URL: z.string().url(),
   OPENAI_API_KEY: z.string().trim().min(1),
+  OPENAI_MODEL_FAST: z.string().trim().min(1).max(128),
+  OPENAI_MODEL_DEEP: z.string().trim().min(1).max(128),
 });
 
 const ZhihuEnvironmentSchema = z.object({
