@@ -63,7 +63,7 @@ export async function handleExperienceRequest(request: Request, deps: Experience
       { headers: NO_STORE },
     );
   } catch {
-    deps.logUsage?.({ zhihuCalls: 0, zhihuFailures: 0, aiCalls: 0, candidates: 0, kept: 0, gameId, source: "ERROR", durationMs: Date.now() - started });
+    deps.logUsage?.({ zhihuCalls: 0, zhihuFailures: 0, aiCalls: 0, candidates: 0, kept: 0, relevant: 0, gameId, source: "ERROR", durationMs: Date.now() - started });
     return fail(502, "ZHIHU_UNAVAILABLE", "experience cards are unavailable", true);
   }
 }

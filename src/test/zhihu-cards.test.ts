@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AiProvider } from "@/ai/provider";
-import { buildExperienceCards, normalizeSupplementCard, normalizeZhihuCards } from "@/zhihu/cards";
+import { RELEVANCE_THRESHOLD, buildExperienceCards, judgeZhihuCards, normalizeSupplementCard } from "@/zhihu/cards";
 import { SUPPLEMENT_LABEL, type ZhihuEvidence } from "@/zhihu/contracts";
 import { toEvidence, type ZhihuSearchProvider } from "@/zhihu/provider";
 import { intentKeywords, selectEvidence } from "@/zhihu/rank";
@@ -69,13 +69,14 @@ describe("deterministic filtering and ranking", () => {
   });
 });
 
-describe("card normalization", () => {
+describe("judgeZhihuCards", () => {
   it("keeps only AI fields the original supports", () => {
-    const [card] = normalizeZhihuCards(
+    const { cards } = judgeZhihuCards(
       {
         cards: [
           {
             index: 1,
+            relevance: 8,
             conditions: ["和父母一起看店", "头三个月几乎没有收入"],
             whatTheyDid: "一边学剪辑一边拍视频",
             whatHappened: "第二年年入 50 万",
@@ -86,21 +87,37 @@ describe("card normalization", () => {
       },
       [evidence()],
     );
-    expect(card).toMatchObject({
+    expect(cards[0]).toMatchObject({
       provenance: "ZHIHU_ADAPTED",
+      relevance: 8,
       authorName: "作者甲",
       url: "https://www.zhihu.com/question/1/answer/2?utm_source=x",
       whatTheyDid: "一边学剪辑一边拍视频",
       whatHappened: null,
       differences: [],
     });
-    expect(card!.excerpt.length).toBeLessThanOrEqual(120);
+    expect(cards[0]!.excerpt.length).toBeLessThanOrEqual(120);
   });
 
-  it("falls back to an excerpt-only original card when the summary is missing", () => {
-    const cards = normalizeZhihuCards(null, [evidence(), evidence({ id: "2", title: "另一个问题" })]);
-    expect(cards.map(({ provenance }) => provenance)).toEqual(["ZHIHU_ORIGINAL", "ZHIHU_ORIGINAL"]);
-    expect(cards[0]!.whatHappened).toBeNull();
+  it("drops cards below the relevance threshold, showing a single precise card alone", () => {
+    const pair = [evidence(), evidence({ id: "2", title: "一个月可以学这20个技能", url: "https://www.zhihu.com/q/2" })];
+    const { cards, scores } = judgeZhihuCards(
+      { cards: [{ index: 1, relevance: 9, whatTheyDid: "一边学剪辑一边拍视频" }, { index: 2, relevance: RELEVANCE_THRESHOLD - 2 }] },
+      pair,
+    );
+    expect(cards.map(({ id }) => id)).toEqual(["1"]);
+    expect(scores).toEqual([
+      { title: "要不要回家接手父母生意?", score: 9, kept: true },
+      { title: "一个月可以学这20个技能", score: RELEVANCE_THRESHOLD - 2, kept: false },
+    ]);
+
+    const atThreshold = judgeZhihuCards({ cards: [{ index: 1, relevance: String(RELEVANCE_THRESHOLD) }] }, [evidence()]);
+    expect(atThreshold.cards).toHaveLength(1);
+  });
+
+  it("never shows a card the model did not score", () => {
+    expect(judgeZhihuCards(null, [evidence()]).cards).toEqual([]);
+    expect(judgeZhihuCards({ cards: [{ index: 1, whatTheyDid: "一边学剪辑一边拍视频" }] }, [evidence()]).cards).toEqual([]);
   });
 
   it("never lets the AI card pose as someone's experience", () => {
@@ -117,15 +134,30 @@ describe("card normalization", () => {
 describe("buildExperienceCards", () => {
   const request = { intent, situation: null, queries: ["父母开店 要不要回家帮忙"] };
   const aiReturning = (content: string): AiProvider => ({ completeJson: async () => content });
+  const twoResults: ZhihuSearchProvider = {
+    search: async () => [evidence(), evidence({ id: "2", title: "另一个问题", url: "https://www.zhihu.com/q/2" })],
+  };
 
-  it("returns real Zhihu cards even when the summary call fails", async () => {
-    const zhihu: ZhihuSearchProvider = { search: async () => [evidence(), evidence({ id: "2", title: "另一个问题", url: "https://www.zhihu.com/q/2" })] };
-    const failingAi: AiProvider = { completeJson: async () => Promise.reject(new Error("down")) };
-    const { data, stats } = await buildExperienceCards(request, { zhihu, ai: failingAi, createId });
+  it("returns only the relevant real cards with a single AI call", async () => {
+    const ai = aiReturning('{"cards":[{"index":1,"relevance":3},{"index":2,"relevance":7}]}');
+    const { data, stats } = await buildExperienceCards(request, { zhihu: twoResults, ai, createId });
     expect(data.source).toBe("ZHIHU");
-    expect(data.cards).toHaveLength(2);
-    expect(data.cards.every((card) => card.provenance === "ZHIHU_ORIGINAL")).toBe(true);
-    expect(stats).toMatchObject({ zhihuCalls: 1, aiCalls: 1, kept: 2 });
+    expect(data.cards.map((card) => card.id)).toEqual(["2"]);
+    expect(stats).toMatchObject({ zhihuCalls: 1, aiCalls: 1, kept: 2, relevant: 1 });
+  });
+
+  it("uses the summary's own fallback points when nothing is relevant, still with one AI call", async () => {
+    const ai = aiReturning('{"cards":[{"index":1,"relevance":3},{"index":2,"relevance":2}],"fallbackPoints":["你最看重的是什么？"]}');
+    const { data, stats } = await buildExperienceCards(request, { zhihu: twoResults, ai, createId });
+    expect(data).toMatchObject({ source: "AI_SUPPLEMENT", cards: [{ label: SUPPLEMENT_LABEL, points: ["你最看重的是什么？"] }] });
+    expect(stats.aiCalls).toBe(1);
+  });
+
+  it("shows nothing when the summary call fails, without spending a second AI call", async () => {
+    const failingAi: AiProvider = { completeJson: async () => Promise.reject(new Error("down")) };
+    const { data, stats } = await buildExperienceCards(request, { zhihu: twoResults, ai: failingAi, createId });
+    expect(data).toEqual({ source: "NONE", cards: [] });
+    expect(stats.aiCalls).toBe(1);
   });
 
   it("degrades to a labelled AI card when Zhihu is unavailable, and to nothing when that fails too", async () => {

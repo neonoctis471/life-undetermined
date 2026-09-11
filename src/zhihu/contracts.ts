@@ -62,6 +62,8 @@ export const ZhihuCardSchema = z
     url: z.string().max(500).refine(isZhihuUrl, { message: "must be an https zhihu.com URL" }),
     contentType: z.string().max(20),
     excerpt: z.string().trim().min(1).max(200),
+    /** Model-judged fit (0-10) to the player's Intent and Situation; only cards above the threshold are returned. */
+    relevance: z.number().int().min(0).max(10),
     conditions: z.array(CardLineSchema).max(4),
     whatTheyDid: CardLineSchema.nullable(),
     whatHappened: CardLineSchema.nullable(),
