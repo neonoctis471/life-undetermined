@@ -6,7 +6,7 @@ import type { ExperienceResponseData, SupplementCard, ZhihuCard } from "@/zhihu/
 
 import type { Async } from "./screens";
 
-// Plain structure only; visual design is handled in the later front-end pass.
+// Plain structure only; visual design for the cards comes in a later pass.
 
 function ZhihuExperience({ card, index }: { card: ZhihuCard; index: number }) {
   const kind = card.contentType === "Article" ? "文章" : "回答";
@@ -52,8 +52,8 @@ export function ExperiencePanel({ experience }: { experience?: Async<ExperienceR
   if (experience.status === "ready" && experience.value.cards.length === 0) return null;
   const supplementOnly = experience.status === "ready" && experience.value.source === "AI_SUPPLEMENT";
   return (
-    <div>
-      <button aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+    <div className="experience">
+      <button className="link-button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
         💬 不知道怎么处理？{supplementOnly ? "看看几个参考思路。" : "看看别人怎么做过。"}
       </button>
       {open &&

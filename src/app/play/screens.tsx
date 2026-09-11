@@ -12,6 +12,8 @@ import type { GameState } from "@/game-state";
 import { describeDecisionAction } from "@/game/labels";
 
 import type { Timed } from "./ai-client";
+import { DISPLAY } from "./copy";
+import type { Side } from "./field/target";
 
 export type Async<T> =
   | { status: "idle" }
@@ -34,16 +36,61 @@ export const PLAN_OPTIONS = [
   "先休息一段时间",
 ];
 
+const MAIN_CHAPTERS: readonly string[] = ["DAY_8", "MONTH_7", "YEAR_4"];
+export const isMainChapter = (chapter: string): chapter is MainChapter => MAIN_CHAPTERS.includes(chapter);
+
 const delay = (seconds: number): CSSProperties => ({ animationDelay: `${seconds}s` });
+
+/** Eyebrow + heavy title. Both strings are fixed copy (display font). */
+export function ScreenHead({ eyebrow, title, level = 2 }: { eyebrow: string; title: string; level?: 1 | 2 }) {
+  const Heading = level === 1 ? "h1" : "h2";
+  return (
+    <header className="screen-head">
+      <p className="eyebrow">{eyebrow}</p>
+      <Heading className="display-title">{title}</Heading>
+    </header>
+  );
+}
+
+export function Chevron() {
+  return (
+    <svg className="chevron" width="9" height="16" viewBox="0 0 9 16" aria-hidden="true" focusable="false">
+      <path d="M1 1l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
 
 export function GenerationBadge({ generation, elapsedMs }: { generation: "AI" | "FALLBACK"; elapsedMs?: number }) {
   return (
-    <p className="muted">
-      <span className={generation === "AI" ? "badge" : "badge fallback"}>
+    <p className="meta">
+      <span className={generation === "AI" ? "tag" : "tag tag-fallback"}>
         {generation === "AI" ? "AI 生成" : "保守模板（AI 暂不可用）"}
       </span>
       {elapsedMs !== undefined && `耗时 ${(elapsedMs / 1000).toFixed(1)}s`}
     </p>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Screen 1: the undetermined field
+// ---------------------------------------------------------------------------
+
+export function Hero({ onStart }: { onStart(): void }) {
+  return (
+    <section className="screen hero" aria-labelledby="hero-title">
+      <p className="eyebrow">{DISPLAY.eyebrows.prologue}</p>
+      <h1 id="hero-title" className="hero-title">
+        <span>{DISPLAY.heroTitle[0]}</span>
+        <span>{DISPLAY.heroTitle[1]}</span>
+      </h1>
+      <p className="hero-subtitle">{DISPLAY.heroSubtitle}</p>
+      <p className="lede">毕业以后的人生没有标准答案。背后这些线，每一条都是一种还没有发生的可能。</p>
+      <div className="row">
+        <button className="btn btn-primary" onClick={onStart}>
+          {DISPLAY.start}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -61,10 +108,10 @@ export function IntentInput(props: {
   onSubmit(): void;
 }) {
   return (
-    <section>
-      <h2>毕业了，你准备怎样开始？</h2>
-      <p className="muted">可以多选，也可以直接说说自己的打算。</p>
-      <div className="row">
+    <section className="screen">
+      <ScreenHead eyebrow={DISPLAY.eyebrows.prologue} title={DISPLAY.intentTitle} />
+      <p className="lede">可以多选，也可以直接说说自己的打算。</p>
+      <div className="plan-grid" role="group" aria-label="初步计划">
         {PLAN_OPTIONS.map((plan) => (
           <button
             key={plan}
@@ -77,7 +124,11 @@ export function IntentInput(props: {
           </button>
         ))}
       </div>
+      <label className="field-label" htmlFor="intent-text">
+        我真正的想法
+      </label>
       <textarea
+        id="intent-text"
         value={props.rawText}
         maxLength={1_000}
         disabled={props.pending}
@@ -85,11 +136,15 @@ export function IntentInput(props: {
         onChange={(event) => props.onTextChange(event.target.value)}
       />
       <div className="row">
-        <button className="primary" onClick={props.onSubmit} disabled={props.pending}>
+        <button className="btn btn-primary" onClick={props.onSubmit} disabled={props.pending}>
           {props.pending ? "正在理解你的打算…" : "就这样开始"}
         </button>
       </div>
-      {props.error && <p className="error">{props.error}</p>}
+      {props.error && (
+        <p className="error" role="alert">
+          {props.error}
+        </p>
+      )}
     </section>
   );
 }
@@ -102,37 +157,39 @@ export function IntentConfirm(props: {
 }) {
   const { summary, intent } = props.understanding.data.result;
   return (
-    <section>
-      <h2>我理解的是这样，对吗？</h2>
-      <div className="card">
-        <GenerationBadge generation={props.understanding.data.generation} elapsedMs={props.understanding.elapsedMs} />
-        <p>{summary}</p>
-        <p>
-          <strong>想做成的事：</strong>
-          {intent.goals.join("；")}
-        </p>
-        <p>
-          <strong>当前最重要的：</strong>
-          {intent.priorities.join("；")}
-        </p>
+    <section className="screen">
+      <ScreenHead eyebrow={DISPLAY.eyebrows.prologue} title={DISPLAY.confirmTitle} />
+      <GenerationBadge generation={props.understanding.data.generation} elapsedMs={props.understanding.elapsedMs} />
+      <p className="statement">{summary}</p>
+      <dl className="ledger">
+        <div>
+          <dt>想做成的事</dt>
+          <dd>{intent.goals.join("；")}</dd>
+        </div>
+        <div>
+          <dt>当前最重要的</dt>
+          <dd>{intent.priorities.join("；")}</dd>
+        </div>
         {intent.constraints.length > 0 && (
-          <p>
-            <strong>限制：</strong>
-            {intent.constraints.join("；")}
-          </p>
+          <div>
+            <dt>限制</dt>
+            <dd>{intent.constraints.join("；")}</dd>
+          </div>
         )}
-        <p>
-          <strong>第一步：</strong>
-          {intent.currentActions.join("；")}
-        </p>
-      </div>
+        <div>
+          <dt>第一步</dt>
+          <dd>{intent.currentActions.join("；")}</dd>
+        </div>
+      </dl>
       <div className="row">
-        <button className="primary" onClick={props.onConfirm}>
+        <button className="btn btn-primary" onClick={props.onConfirm}>
           对，就是这样
         </button>
-        <button onClick={props.onEdit}>我想改一下</button>
+        <button className="btn" onClick={props.onEdit}>
+          我想改一下
+        </button>
       </div>
-      <p className="muted">
+      <p className="meta">
         第 8 天的生活：
         {props.prefetchStatus === "pending" ? "正在后台准备…" : props.prefetchStatus === "ready" ? "已准备好" : "确认后开始准备"}
       </p>
@@ -143,12 +200,6 @@ export function IntentConfirm(props: {
 // ---------------------------------------------------------------------------
 // Screens 4/7/9: two possibilities (with time acceleration before YEAR_4)
 // ---------------------------------------------------------------------------
-
-const CHAPTER_HEADINGS: Record<MainChapter, string> = {
-  DAY_8: "毕业后的第 8 天 · 生活可能这样展开",
-  MONTH_7: "毕业后的第 7 个月 · 新的可能",
-  YEAR_4: "毕业后的第 4 年 · 一个重要的决定",
-};
 
 export interface TimeStep {
   label: string;
@@ -164,7 +215,7 @@ export function TimeAdvance({ steps, caption }: { steps: TimeStep[]; caption: st
   const end = steps.length > 0 ? starts.at(-1)! + 1.4 + steps.at(-1)!.lines.length * 0.9 : 0;
   return (
     <div className="card">
-      <p className="muted">{caption}</p>
+      <p className="meta">{caption}</p>
       <div className="timeline">
         {steps.map((step, index) => (
           <div key={`${index}-${step.label}`}>
@@ -172,7 +223,7 @@ export function TimeAdvance({ steps, caption }: { steps: TimeStep[]; caption: st
               {step.label}
             </p>
             {step.lines.map((line, lineIndex) => (
-              <p key={`${lineIndex}-${line}`} className="beat muted" style={delay(starts[index]! + 0.9 * (lineIndex + 1))}>
+              <p key={`${lineIndex}-${line}`} className="beat" style={delay(starts[index]! + 0.9 * (lineIndex + 1))}>
                 {line}
               </p>
             ))}
@@ -213,7 +264,7 @@ function SituationPending(props: { chapter: "DAY_8" | "MONTH_7"; facts: readonly
         <span style={{ animationDuration: "25s" }} />
       </div>
       {lines.map((line, index) => (
-        <p key={`${index}-${line}`} className="beat muted" style={delay(0.4 + index * 1.6)}>
+        <p key={`${index}-${line}`} className="beat" style={delay(0.4 + index * 1.6)}>
           {line}
         </p>
       ))}
@@ -231,13 +282,14 @@ export function Possibilities(props: {
   firstStep?: string;
   onChoose(kind: "MOMENTUM" | "UNEXPECTED"): void;
   onGenerate(): void;
+  onHover(side: Side): void;
 }) {
   const { slot } = props;
   return (
-    <section>
-      <h2>{CHAPTER_HEADINGS[props.chapter]}</h2>
+    <section className="screen">
+      <ScreenHead eyebrow={DISPLAY.eyebrows[props.chapter]} title={DISPLAY.chapterTitles[props.chapter]} />
       {slot.status === "idle" && (
-        <button className="primary" onClick={props.onGenerate}>
+        <button className="btn btn-primary" onClick={props.onGenerate}>
           继续
         </button>
       )}
@@ -250,19 +302,41 @@ export function Possibilities(props: {
       {slot.status === "error" && (
         <>
           <p className="error">{slot.message}</p>
-          <button onClick={props.onGenerate}>重试</button>
+          <button className="btn" onClick={props.onGenerate}>
+            重试
+          </button>
         </>
       )}
       {slot.status === "ready" && (
         <>
           <GenerationBadge generation={slot.value.data.generation} elapsedMs={slot.value.elapsedMs} />
-          {slot.value.data.result.possibilities.map((possibility) => (
-            <div className="card" key={possibility.id}>
-              <h3>{possibility.title}</h3>
-              <p>{possibility.summary}</p>
-              <button onClick={() => props.onChoose(possibility.kind)}>看看这种可能</button>
-            </div>
-          ))}
+          <ol className="possibility-list">
+            {slot.value.data.result.possibilities.map((possibility, index) => {
+              const side: Side = possibility.kind === "MOMENTUM" ? 1 : -1;
+              return (
+                <li
+                  key={possibility.id}
+                  className="possibility"
+                  onPointerEnter={() => props.onHover(side)}
+                  onPointerLeave={() => props.onHover(0)}
+                >
+                  <p className="index">0{index + 1}</p>
+                  <h3 className="possibility-title">{DISPLAY.possibilityTitles[possibility.kind]}</h3>
+                  <p className="possibility-summary">{possibility.summary}</p>
+                  <div>
+                    <button
+                      className="btn"
+                      onFocus={() => props.onHover(side)}
+                      onBlur={() => props.onHover(0)}
+                      onClick={() => props.onChoose(possibility.kind)}
+                    >
+                      看看这种可能
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
         </>
       )}
     </section>
@@ -287,31 +361,36 @@ export function SituationView(props: {
   const possibility = situation.possibilities.find((item) => item.id === played.selectedPossibilityId);
   const isKeyTurn = situation.chapter === "YEAR_4" && props.state.keyDecisionSnapshot === null;
   const custom = situation.availableActions.find((action) => action.kind === "CUSTOM_PLACEHOLDER");
+  const eyebrow = isMainChapter(situation.chapter) ? DISPLAY.eyebrows[situation.chapter] : situation.timeLabel;
+  const title = possibility ? DISPLAY.possibilityTitles[possibility.kind] : DISPLAY.decideTitle;
 
   return (
-    <section>
-      <h2>
-        {situation.timeLabel} · {possibility?.title}
-      </h2>
-      <div className="card">
-        <p className="scene">{situation.concreteContext}</p>
-        <p className="muted">此刻的张力：{situation.tensions.join(" / ")}</p>
-        {situation.externalConditions.length > 0 && (
-          <p className="muted">外部条件：{situation.externalConditions.join(" / ")}</p>
-        )}
-      </div>
+    <section className="screen">
+      <ScreenHead eyebrow={eyebrow} title={title} />
+      <p className="scene">{situation.concreteContext}</p>
+      <p className="meta">此刻的张力：{situation.tensions.join(" / ")}</p>
+      {situation.externalConditions.length > 0 && (
+        <p className="meta">外部条件：{situation.externalConditions.join(" / ")}</p>
+      )}
       {props.experience}
-      <h2>你准备怎么办？</h2>
-      {isKeyTurn && <p className="muted">这是一个会影响之后几年的决定。五年以后，你还可以回到这里，看看另一种选择。</p>}
-      <div className="actions">
+      <h3 className="subhead">{DISPLAY.decideTitle}</h3>
+      {isKeyTurn && <p className="note">这是一个会影响之后几年的决定。五年以后，你还可以回到这里，看看另一种选择。</p>}
+      <div className="actions option-list">
         {situation.availableActions.map((action) =>
           action.kind === "PRESET" ? (
-            <button key={action.id} className="action" onClick={() => props.onDecide(action)}>
-              {action.label}
+            <button key={action.id} className="action option" onClick={() => props.onDecide(action)}>
+              <span>{action.label}</span>
+              <Chevron />
             </button>
           ) : (
-            <button key={action.id} className="action" aria-pressed={customOpen} onClick={() => setCustomOpen(true)}>
-              {action.label}
+            <button
+              key={action.id}
+              className="action option"
+              aria-pressed={customOpen}
+              onClick={() => setCustomOpen(true)}
+            >
+              <span>{action.label}</span>
+              <Chevron />
             </button>
           ),
         )}
@@ -322,10 +401,11 @@ export function SituationView(props: {
             value={customText}
             maxLength={200}
             placeholder="写下你打算怎么做"
+            aria-label="我自己的办法"
             onChange={(event) => setCustomText(event.target.value)}
           />
           <div className="row">
-            <button className="primary" disabled={!customText.trim()} onClick={() => props.onDecide(custom, customText)}>
+            <button className="btn btn-primary" disabled={!customText.trim()} onClick={() => props.onDecide(custom, customText)}>
               就这么做
             </button>
           </div>
@@ -344,41 +424,41 @@ export function OutcomePending(props: { state: GameState; status: Async<unknown>
   const situation = props.state.situations.at(-1)?.situation;
   if (!decision || !situation) return null;
   const label = describeDecisionAction(decision, situation);
+  const eyebrow = isMainChapter(situation.chapter) ? DISPLAY.eyebrows[situation.chapter] : situation.timeLabel;
   const { status } = props;
   return (
-    <section>
-      <h2>{situation.timeLabel}</h2>
-      <div className="card">
-        <p className="muted">你决定：</p>
-        <p className="echo">「{label}」</p>
-        {status.status === "pending" && (
-          <>
-            <div className="progress">
-              <span />
-            </div>
-            <p className="beat muted" style={delay(0.6)}>
-              你照着这个决定做了下去。
-            </p>
-            <p className="beat muted" style={delay(2.2)}>
-              身边的人有了各自的反应。
-            </p>
-            <p className="beat muted" style={delay(3.8)}>
-              几天以后……
-            </p>
-          </>
-        )}
-        {status.status === "error" && (
-          <>
-            <p className="error">{status.message}</p>
-            <button onClick={props.onRetry}>重试</button>
-          </>
-        )}
-        {status.status === "idle" && (
-          <button className="primary" onClick={props.onRetry}>
-            看看后来发生了什么
+    <section className="screen" aria-live="polite">
+      <ScreenHead eyebrow={eyebrow} title={DISPLAY.decidedTitle} />
+      <p className="echo">「{label}」</p>
+      {status.status === "pending" && (
+        <div className="card">
+          <div className="progress">
+            <span />
+          </div>
+          <p className="beat" style={delay(0.6)}>
+            你照着这个决定做了下去。
+          </p>
+          <p className="beat" style={delay(2.2)}>
+            身边的人有了各自的反应。
+          </p>
+          <p className="beat" style={delay(3.8)}>
+            几天以后……
+          </p>
+        </div>
+      )}
+      {status.status === "error" && (
+        <>
+          <p className="error">{status.message}</p>
+          <button className="btn" onClick={props.onRetry}>
+            重试
           </button>
-        )}
-      </div>
+        </>
+      )}
+      {status.status === "idle" && (
+        <button className="btn btn-primary" onClick={props.onRetry}>
+          看看后来发生了什么
+        </button>
+      )}
     </section>
   );
 }
@@ -393,27 +473,26 @@ export function OutcomeView(props: {
   const situation = props.state.situations.at(-1)?.situation;
   if (!outcome || !situation) return null;
   const facts = props.state.facts.slice(-outcome.addedFacts.length);
+  const eyebrow = isMainChapter(situation.chapter) ? DISPLAY.eyebrows[situation.chapter] : situation.timeLabel;
   return (
-    <section>
-      <h2>{situation.timeLabel} · 后来</h2>
-      <div className="card">
-        {props.badge && <GenerationBadge generation={props.badge.generation} elapsedMs={props.badge.elapsedMs} />}
-        {outcome.validation === "FALLBACK" && !props.badge && <GenerationBadge generation="FALLBACK" />}
-        <p className="scene">{outcome.narrative}</p>
-        {outcome.gains.length > 0 && <p className="muted">收获：{outcome.gains.join(" / ")}</p>}
-        {outcome.costs.length > 0 && <p className="muted">代价：{outcome.costs.join(" / ")}</p>}
-        {outcome.unresolvedConsequences.length > 0 && (
-          <p className="muted">还没解决的：{outcome.unresolvedConsequences.join(" / ")}</p>
-        )}
-      </div>
-      <h2>现在真正发生了</h2>
+    <section className="screen">
+      <ScreenHead eyebrow={eyebrow} title={DISPLAY.outcomeTitle} />
+      {props.badge && <GenerationBadge generation={props.badge.generation} elapsedMs={props.badge.elapsedMs} />}
+      {outcome.validation === "FALLBACK" && !props.badge && <GenerationBadge generation="FALLBACK" />}
+      <p className="scene">{outcome.narrative}</p>
+      {outcome.gains.length > 0 && <p className="meta">收获：{outcome.gains.join(" / ")}</p>}
+      {outcome.costs.length > 0 && <p className="meta">代价：{outcome.costs.join(" / ")}</p>}
+      {outcome.unresolvedConsequences.length > 0 && (
+        <p className="meta">还没解决的：{outcome.unresolvedConsequences.join(" / ")}</p>
+      )}
+      <h3 className="subhead">{DISPLAY.factsTitle}</h3>
       <ul className="facts">
         {facts.map((fact) => (
-          <li key={fact.id}>✓ {fact.statement}</li>
+          <li key={fact.id}>{fact.statement}</li>
         ))}
       </ul>
       <div className="row">
-        <button className="primary" onClick={props.onContinue}>
+        <button className="btn btn-primary" onClick={props.onContinue}>
           {props.continueLabel}
         </button>
       </div>

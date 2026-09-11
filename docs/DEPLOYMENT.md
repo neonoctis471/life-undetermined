@@ -10,6 +10,16 @@
 
 本机主机名含中文，Vercel CLI 会因非 ASCII 请求头崩溃。运行 CLI 前用 `NODE_OPTIONS=--require <ascii-hostname.cjs>` 只为 CLI 进程改写 `os.hostname()`。
 
+## 前端改造期间的部署纪律
+
+- 改造期间只做 preview 部署（`vercel deploy`，不带 `--prod`），并用 `vercel alias set <preview-url> preview.eilnoctis.com` 挂到预览域名；DNSPod 记录 `preview CNAME cname.vercel-dns.com`。
+- 每个阶段在 preview.eilnoctis.com 验收通过后，才允许 `vercel deploy --prod`。eilnoctis.com 在任何时刻都必须是完整可玩的版本。
+- Preview 与 Production 各有一套环境变量，名称相同，都只经 stdin 写入。
+
+## 轮换 AI Key（9/13 提交前）
+
+**Production 和 Preview 两套环境变量都要换**，只换 Production 会让 preview.eilnoctis.com 继续使用旧 Key。换完两边各重新部署一次，再各跑一局验证。
+
 ## 环境变量（只配在 Vercel 后台或 `vercel env`，绝不上传 `.env.local`）
 
 | 名称 | 说明 |

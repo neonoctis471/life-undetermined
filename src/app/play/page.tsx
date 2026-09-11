@@ -13,7 +13,6 @@ import type {
 import type { Action } from "@/contracts/game";
 import type { GameAction, GameState } from "@/game-state";
 import {
-  MAIN_CHAPTERS,
   buildDecision,
   choiceSummaries,
   isKeyDecisionTurn,
@@ -35,8 +34,12 @@ import {
   requestUnderstandIntent,
   type Timed,
 } from "./ai-client";
+import { ForkMark } from "./brand";
 import { engineDeps, getGameStore, useGameState } from "./client-store";
+import { ACT_LABELS, DISPLAY } from "./copy";
 import { ExperiencePanel } from "./experience-cards";
+import { LineField } from "./field/LineField";
+import { deriveFieldTarget, type FieldUi, type Side } from "./field/target";
 import { loadForkChoice, saveForkChoice, type ForkChoice } from "./fork-choice";
 import {
   ComparisonView,
@@ -47,12 +50,14 @@ import {
   RewindTransition,
 } from "./late-screens";
 import {
+  Hero,
   IntentConfirm,
   IntentInput,
   OutcomePending,
   OutcomeView,
   Possibilities,
   SituationView,
+  isMainChapter,
   type Async,
 } from "./screens";
 import { requestExperience } from "./zhihu-client";
@@ -67,12 +72,34 @@ const FIVE_YEARS_MIN_MS = 5_000;
 const REWIND_MIN_MS = 7_000;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-const isMainChapter = (chapter: string): chapter is MainChapter => (MAIN_CHAPTERS as readonly string[]).includes(chapter);
+
+/** Which act the player is in, for the colophon. Presentation only. */
+function actIndex(state: GameState, viewingNextChapter: boolean): number {
+  switch (state.currentStage) {
+    case "CREATED":
+      return 0;
+    case "INTENT_CONFIRMED":
+      return 1;
+    case "SITUATION_READY":
+    case "DECISION_RECORDED":
+      return state.situations.length;
+    case "OUTCOME_RESOLVED":
+      return state.outcomes.length + (viewingNextChapter ? 1 : 0);
+    case "LONG_TERM_READY":
+      return 3;
+    case "REUNION_READY":
+      return 4;
+    default:
+      return 5;
+  }
+}
 
 export default function PlayPage() {
   const gameState = useGameState();
   const [rawText, setRawText] = useState("");
   const [plans, setPlans] = useState<string[]>([]);
+  const [heroOpen, setHeroOpen] = useState(true);
+  const [hovered, setHovered] = useState<Side>(0);
   const [understanding, setUnderstanding] = useState<Async<Timed<UnderstandIntentResponseData>>>(IDLE);
   const [situations, setSituations] = useState<SituationSlots>({});
   const [experiences, setExperiences] = useState<ExperienceSlots>({});
@@ -88,7 +115,13 @@ export default function PlayPage() {
   const session = useRef(0);
   const fiveYearsRequest = useRef<Promise<Timed<SimulateLifeResponseData>> | null>(null);
 
-  if (!gameState) return <main>加载中…</main>;
+  if (!gameState) {
+    return (
+      <div className="shell">
+        <main className="stage" aria-busy="true" />
+      </div>
+    );
+  }
 
   const dispatch = (action: GameAction): boolean => {
     try {
@@ -213,6 +246,7 @@ export default function PlayPage() {
     const variant = candidate.variants[kind];
     if (!dispatch({ type: "ADD_SITUATION", situation: variant, selectedPossibilityId: possibility.id })) return;
     setShowPossibilities(false);
+    setHovered(0);
     setOutcome(IDLE);
     const existing = experiences[chapter];
     if (chapter !== "DAY_8" || !existing || existing.status === "error") {
@@ -370,6 +404,8 @@ export default function PlayPage() {
     fiveYearsRequest.current = null;
     getGameStore().reset();
     saveForkChoice(null);
+    setHeroOpen(true);
+    setHovered(0);
     setUnderstanding(IDLE);
     setSituations({});
     setExperiences({});
@@ -387,6 +423,7 @@ export default function PlayPage() {
 
   const stage = gameState.currentStage;
   const chapter = nextChapter(gameState);
+  const nextSlot = chapter ? situations[chapter] : undefined;
   const firstStep = gameState.intent?.currentActions[0];
   const latestOutcomeId = gameState.outcomes.at(-1)?.id;
   const outcomeBadge =
@@ -397,6 +434,29 @@ export default function PlayPage() {
     slot.status === "ready" ? { generation: slot.value.data.generation, elapsedMs: slot.value.elapsedMs } : undefined;
   const replacement = forkChoice?.gameId === gameState.gameId ? forkChoice.text : null;
   const currentChapter = gameState.situations.at(-1)?.situation.chapter;
+  const showHero = stage === "CREATED" && heroOpen && understanding.status === "idle";
+
+  // The line field is the player's life; its shape comes from GameState.
+  const fieldUi: FieldUi = {
+    heroOpen: showHero,
+    understood: understanding.status === "ready",
+    viewingNextChapter: showPossibilities,
+    possibilitiesReady: nextSlot?.status === "ready",
+    hovered,
+    wait:
+      understanding.status === "pending"
+        ? "understanding"
+        : stage === "DECISION_RECORDED" && outcome.status === "pending"
+          ? "outcome"
+          : accelerating
+            ? "five-years"
+            : parallel.status === "pending"
+              ? "rewind"
+              : nextSlot?.status === "pending" && (stage === "INTENT_CONFIRMED" || showPossibilities)
+                ? "situation"
+                : "none",
+  };
+  const fieldTarget = deriveFieldTarget(gameState, fieldUi);
 
   let body: React.ReactNode;
   switch (stage) {
@@ -409,6 +469,8 @@ export default function PlayPage() {
             onConfirm={confirmIntent}
             onEdit={editIntent}
           />
+        ) : showHero ? (
+          <Hero onStart={() => setHeroOpen(false)} />
         ) : (
           <IntentInput
             rawText={rawText}
@@ -432,6 +494,7 @@ export default function PlayPage() {
           firstStep={firstStep}
           onChoose={choosePossibility}
           onGenerate={() => ensureSituation("DAY_8")}
+          onHover={setHovered}
         />
       );
       break;
@@ -460,6 +523,7 @@ export default function PlayPage() {
             firstStep={firstStep}
             onChoose={choosePossibility}
             onGenerate={() => ensureSituation(chapter)}
+            onHover={setHovered}
           />
         ) : (
           <OutcomeView
@@ -495,13 +559,15 @@ export default function PlayPage() {
         body = <RewindTransition state={gameState} replacement={replacement} />;
       } else if (parallel.status === "error" && replacement) {
         body = (
-          <section>
+          <section className="screen">
             <p className="error">{parallel.message}</p>
             <div className="row">
-              <button className="primary" onClick={() => runCounterfactual(replacement)}>
+              <button className="btn btn-primary" onClick={() => runCounterfactual(replacement)}>
                 重试
               </button>
-              <button onClick={() => setParallel(IDLE)}>换一个选择</button>
+              <button className="btn" onClick={() => setParallel(IDLE)}>
+                换一个选择
+              </button>
             </div>
           </section>
         );
@@ -525,16 +591,32 @@ export default function PlayPage() {
   }
 
   return (
-    <main>
-      <div className="topbar">
-        <div>
-          <h1>人生未定式</h1>
-          <p className="muted">毕业后的五年，你可以走两遍。</p>
-        </div>
-        <button onClick={reset}>重新开始</button>
+    <>
+      <LineField target={fieldTarget} seed={gameState.gameId} />
+      <div className="shell">
+        <header className="masthead">
+          <div className="brand">
+            <ForkMark />
+            <span className="wordmark">{DISPLAY.wordmark}</span>
+          </div>
+          <p className="masthead-note">Life, undetermined</p>
+          <button className="text-button" onClick={reset}>
+            重新开始
+          </button>
+        </header>
+        <main className="stage">
+          {notice && (
+            <p className="error" role="alert">
+              {notice}
+            </p>
+          )}
+          {body}
+        </main>
+        <footer className="colophon">
+          <span>{ACT_LABELS[Math.min(actIndex(gameState, showPossibilities), ACT_LABELS.length - 1)]}</span>
+          <span>每一个选择，都会留下一条线</span>
+        </footer>
       </div>
-      {notice && <p className="error">{notice}</p>}
-      {body}
-    </main>
+    </>
   );
 }
