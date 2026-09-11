@@ -184,6 +184,8 @@ describe("extractJsonObject", () => {
     expect(extractJsonObject('{"a":1}')).toEqual({ a: 1 });
     expect(extractJsonObject('```json\n{"a":1}\n```')).toEqual({ a: 1 });
     expect(extractJsonObject('好的，结果如下：{"a":1} 希望有帮助')).toEqual({ a: 1 });
+    expect(extractJsonObject('说明如下\n```JSON\n{"a":{"b":[1]}}\n```\n以上')).toEqual({ a: { b: [1] } });
+    expect(extractJsonObject('```\n{"a":1}')).toEqual({ a: 1 });
   });
 
   it("rejects output without JSON", () => {

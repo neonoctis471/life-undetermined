@@ -89,22 +89,29 @@ async function generateWithRetry<T>(
   return null;
 }
 
-/** Accepts bare JSON, ```json fenced JSON, or JSON wrapped in stray prose. */
+/**
+ * Always strips ``` fences before parsing, whether or not the relay honoured
+ * response_format (it may silently route to a model that wraps JSON in fences).
+ * Accepts bare JSON, fenced JSON anywhere in the text, or JSON wrapped in prose.
+ */
 export function extractJsonObject(content: string): unknown {
-  const unfenced = content
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/, "");
-  try {
-    return JSON.parse(unfenced);
-  } catch {
-    const start = unfenced.indexOf("{");
-    const end = unfenced.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(unfenced.slice(start, end + 1));
-      } catch {
-        // fall through
+  const candidates: string[] = [];
+  const fenced = /```[a-zA-Z]*\s*([\s\S]*?)```/.exec(content);
+  if (fenced?.[1]) candidates.push(fenced[1]);
+  candidates.push(content.replace(/```[a-zA-Z]*/g, ""));
+  for (const candidate of candidates) {
+    const text = candidate.trim();
+    try {
+      return JSON.parse(text);
+    } catch {
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        try {
+          return JSON.parse(text.slice(start, end + 1));
+        } catch {
+          // try the next candidate
+        }
       }
     }
   }

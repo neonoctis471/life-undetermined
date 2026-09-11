@@ -13,11 +13,18 @@ export function resolveChatCompletionsUrl(baseUrl: string): string {
   return `${/\/v1$/.test(trimmed) ? trimmed : `${trimmed}/v1`}/chat/completions`;
 }
 
+export interface OpenAiCompatibleOptions {
+  fetchImpl?: typeof fetch;
+  /** The relay has been seen serving a different model than requested; observe, never block. */
+  onModelMismatch?(requested: string, served: string): void;
+}
+
 /** OpenAI-compatible chat/completions over native fetch; no SDK. */
 export function createOpenAiCompatibleProvider(
   env: AiEnvironment = getAiEnvironment(),
-  fetchImpl: typeof fetch = fetch,
+  options: OpenAiCompatibleOptions = {},
 ): AiProvider {
+  const fetchImpl = options.fetchImpl ?? fetch;
   const url = resolveChatCompletionsUrl(env.OPENAI_BASE_URL);
 
   return {
@@ -69,7 +76,12 @@ export function createOpenAiCompatibleProvider(
       } catch {
         throw new AiProviderError("INVALID_RESPONSE", "AI response is not JSON");
       }
-      const content = (body as { choices?: { message?: { content?: unknown } }[] } | null)?.choices?.[0]?.message?.content;
+      const parsed = body as { model?: unknown; choices?: { message?: { content?: unknown } }[] } | null;
+      const served = typeof parsed?.model === "string" ? parsed.model.replace(/[^\w.:/-]/g, "").slice(0, 80) : "";
+      if (served && served !== model && !served.startsWith(`${model}-`)) {
+        options.onModelMismatch?.(model, served);
+      }
+      const content = parsed?.choices?.[0]?.message?.content;
       if (typeof content !== "string" || content.trim().length === 0) {
         throw new AiProviderError("INVALID_RESPONSE", "AI response has no content");
       }

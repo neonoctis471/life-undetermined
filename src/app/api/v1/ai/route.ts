@@ -11,7 +11,11 @@ let provider: AiProvider | undefined;
 
 export function POST(request: Request): Promise<Response> {
   return handleAiRequest(request, {
-    getProvider: () => (provider ??= createOpenAiCompatibleProvider()),
+    getProvider: () =>
+      (provider ??= createOpenAiCompatibleProvider(undefined, {
+        onModelMismatch: (requested, served) =>
+          console.warn(`[ai] model mismatch requested=${requested} served=${served}`),
+      })),
     createId: randomUUID,
     log: (event) =>
       console.info(`[ai] ${event.operation} attempt=${event.attempt} outcome=${event.outcome} ${event.durationMs}ms`),
