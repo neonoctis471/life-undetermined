@@ -506,8 +506,45 @@ describe("lightweight game state engine", () => {
     ["future trigger Fact", (s) => { s.situations[1]!.situation.triggerFactIds = [s.facts[2]!.id]; }],
     ["missing later trigger", (s) => { s.situations[1]!.situation.triggerFactIds = []; }],
     ["dangling Fact Decision", (s) => { s.facts[0]!.causedByDecisionIds = [ids.fact]; }],
+    ["future Fact causal Decision", (s) => {
+      const futureDecisionId = s.decisions[1]!.id;
+      s.outcomes[0]!.addedFacts[0]!.causedByDecisionIds = [futureDecisionId];
+      s.facts[0]!.causedByDecisionIds = [futureDecisionId];
+    }],
     ["dangling Fact dependency", (s) => { s.facts[0]!.dependsOnFactIds = [ids.fact]; }],
+    ["same-Outcome Fact dependency", (s) => {
+      const firstProposal = s.outcomes[0]!.addedFacts[0]!;
+      const firstFact = s.facts[0]!;
+      const secondId = "60000000-0000-4000-8000-000000000001";
+      s.outcomes[0]!.addedFacts.push({
+        ...structuredClone(firstProposal),
+        statement: "同批第二个事实依赖第一个事实",
+        dependsOnFactIds: [firstFact.id],
+      });
+      s.facts.splice(1, 0, {
+        ...structuredClone(firstFact),
+        id: secondId,
+        statement: "同批第二个事实依赖第一个事实",
+        dependsOnFactIds: [firstFact.id],
+      });
+    }],
     ["dangling superseded Fact", (s) => { s.facts[0]!.supersedesFactId = ids.fact; }],
+    ["same-Outcome superseded Fact", (s) => {
+      const firstProposal = s.outcomes[0]!.addedFacts[0]!;
+      const firstFact = s.facts[0]!;
+      const secondId = "60000000-0000-4000-8000-000000000002";
+      s.outcomes[0]!.addedFacts.push({
+        ...structuredClone(firstProposal),
+        statement: "同批第二个事实取代第一个事实",
+        supersedesFactId: firstFact.id,
+      });
+      s.facts.splice(1, 0, {
+        ...structuredClone(firstFact),
+        id: secondId,
+        statement: "同批第二个事实取代第一个事实",
+        supersedesFactId: firstFact.id,
+      });
+    }],
     ["missing authoritative Fact", (s) => { s.facts.pop(); }],
     ["missing key Snapshot", (s) => { s.keyDecisionSnapshot = null; }],
     ["duplicate key Decision", (s) => { s.decisions[1]!.isKeyDecision = true; }],

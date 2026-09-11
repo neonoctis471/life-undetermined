@@ -127,6 +127,7 @@ export function validateGameStateConsistency(state: GameStateStructure): GameSta
   for (let index = 0; index < state.situations.length; index += 1) {
     const played = state.situations[index]!;
     const situation = played.situation;
+    const availableDecisionIds = new Set(state.decisions.slice(0, index + 1).map(({ id }) => id));
     if (situation.chapter !== MAIN_CHAPTERS[index]) {
       issue(["situations", index, "situation", "chapter"], "main chapters must be in order");
     }
@@ -164,6 +165,22 @@ export function validateGameStateConsistency(state: GameStateStructure): GameSta
       for (let proposalIndex = 0; proposalIndex < outcome.addedFacts.length; proposalIndex += 1) {
         const proposal = outcome.addedFacts[proposalIndex]!;
         const fact = outcomeFacts[proposalIndex];
+        addTemporalReferenceIssues(
+          proposal,
+          ["outcomes", index, "addedFacts", proposalIndex],
+          availableDecisionIds,
+          priorFactIds,
+          issue,
+        );
+        if (fact) {
+          addTemporalReferenceIssues(
+            fact,
+            ["facts", factOffset + proposalIndex],
+            availableDecisionIds,
+            priorFactIds,
+            issue,
+          );
+        }
         if (fact && !sameFactProposal(fact, proposal)) {
           issue(["facts", factOffset + proposalIndex], "authoritative Fact must match its Outcome proposal");
         }
@@ -274,6 +291,27 @@ function addCausalEvidenceIssues(
   const evidenceKinds = Number(hasDecision) + Number(hasPriorFact) + Number(hasExternalEvent);
   if (fact.causalReasons.includes("MIXED_CAUSE") && evidenceKinds < 2) {
     issue(path, "MIXED_CAUSE requires at least two evidence kinds");
+  }
+}
+
+function addTemporalReferenceIssues(
+  value: Pick<
+    GameStateStructure["facts"][number],
+    "causedByDecisionIds" | "dependsOnFactIds" | "supersedesFactId"
+  >,
+  path: (string | number)[],
+  availableDecisionIds: Set<string>,
+  priorFactIds: Set<string>,
+  issue: (path: (string | number)[], message: string) => void,
+): void {
+  if (value.causedByDecisionIds.some((id) => !availableDecisionIds.has(id))) {
+    issue([...path, "causedByDecisionIds"], "Fact can only reference Decisions recorded by this Outcome");
+  }
+  if (value.dependsOnFactIds.some((id) => !priorFactIds.has(id))) {
+    issue([...path, "dependsOnFactIds"], "Fact can only depend on Facts from before this Outcome");
+  }
+  if (value.supersedesFactId && !priorFactIds.has(value.supersedesFactId)) {
+    issue([...path, "supersedesFactId"], "Fact can only supersede a Fact from before this Outcome");
   }
 }
 
