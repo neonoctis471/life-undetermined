@@ -50,7 +50,7 @@ import {
   ReunionView,
   RewindTransition,
 } from "./late-screens";
-import { draftIntentFromPlans, planIntents, planQueries } from "./plans";
+import { ADVICE_INTENT, ADVICE_QUERIES, planIntents } from "./plans";
 import {
   Hero,
   IntentConfirm,
@@ -174,16 +174,15 @@ export default function PlayPage() {
   };
 
   /**
-   * Act 1 lookup, driven by the ticked chips only. The draft Intent it builds is
-   * throwaway ranking input and never reaches the engine.
+   * Act 1 lookup: how people who have been through it say you should choose.
+   * Independent of the ticked chips — the player can ask before deciding
+   * anything. Its Intent is fixed ranking input and never reaches the engine.
    */
   const loadPlanExperience = () => {
-    const intent = draftIntentFromPlans(plans, rawText);
-    const queries = planQueries(plans);
-    if (!intent || queries.length === 0 || planExperience.status === "pending") return;
+    if (planExperience.status === "pending") return;
     const token = session.current;
     setPlanExperience({ status: "pending" });
-    requestExperience({ intent, situation: null, queries })
+    requestExperience({ intent: ADVICE_INTENT, situation: null, queries: [...ADVICE_QUERIES] })
       .then((value) => {
         if (session.current === token) setPlanExperience({ status: "ready", value });
       })
@@ -519,19 +518,12 @@ export default function PlayPage() {
             pending={understanding.status === "pending"}
             error={understanding.status === "error" ? understanding.message : null}
             experience={
-              // "其他" carries no search phrase, so ticking only it must not arm the button.
-              <PlanExperiencePanel
-                experience={planExperience}
-                enabled={planQueries(plans).length > 0}
-                onLoad={loadPlanExperience}
-              />
+              <PlanExperiencePanel experience={planExperience} onLoad={loadPlanExperience} />
             }
             onTextChange={setRawText}
-            onTogglePlan={(plan) => {
-              // A different plan deserves a different lookup, so the panel resets.
-              setPlanExperience(IDLE);
-              setPlans((current) => (current.includes(plan) ? current.filter((item) => item !== plan) : [...current, plan]));
-            }}
+            onTogglePlan={(plan) =>
+              setPlans((current) => (current.includes(plan) ? current.filter((item) => item !== plan) : [...current, plan]))
+            }
             onToggleValue={(value) =>
               // Values only shape the Intent, so the Zhihu panel is left alone.
               setValues((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]))

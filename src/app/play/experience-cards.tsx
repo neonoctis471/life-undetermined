@@ -56,31 +56,25 @@ function Cards({ cards }: { cards: ExperienceResponseData["cards"] }) {
 }
 
 /**
- * Act 1 version: the player has ticked plans but written nothing yet, so the
- * lookup only runs when they ask for it. Unlike the in-Situation panel this one
- * stays visible after a miss — they clicked, so they get an answer either way.
+ * Act 1 version: advice on how to choose after graduating, asked for rather
+ * than prefetched. Unlike the in-Situation panel this one stays visible after a
+ * miss — they clicked, so they get an answer either way.
  */
-export function PlanExperiencePanel(props: {
-  experience?: Async<ExperienceResponseData>;
-  enabled: boolean;
-  onLoad(): void;
-}) {
+export function PlanExperiencePanel(props: { experience?: Async<ExperienceResponseData>; onLoad(): void }) {
   const status = props.experience?.status ?? "idle";
   const cards = props.experience?.status === "ready" ? props.experience.value.cards : [];
   return (
     <div className="experience experience-plan">
       {cards.length > 0 ? (
-        // Once cards are showing there is nothing left to ask for; ticking a
-        // different plan resets the panel and brings the trigger back.
-        <p className="plan-lookup-title">💬 走过这条路的人，后来怎么样了</p>
+        <p className="plan-lookup-title">💬 知乎朋友们怎么推荐毕业后的选择</p>
       ) : (
-        <button className="link-button" disabled={!props.enabled || status === "pending"} onClick={props.onLoad}>
-          💬 {props.enabled ? "看看走过这条路的人，后来怎么样了" : "先选一个打算，再看看别人怎么走的"}
+        <button className="link-button" disabled={status === "pending"} onClick={props.onLoad}>
+          💬 看看知乎朋友们怎么推荐毕业后的选择
         </button>
       )}
-      {status === "pending" && <p className="muted">正在知乎上找走过这条路的人……</p>}
+      {status === "pending" && <p className="muted">正在知乎上找过来人的建议……</p>}
       {status === "error" && <p className="muted">这次没能找到，先按你自己的想法写吧。</p>}
-      {status === "ready" && cards.length === 0 && <p className="muted">这几个方向暂时没找到合适的回答，换一个试试。</p>}
+      {status === "ready" && cards.length === 0 && <p className="muted">这次没找到合适的回答。</p>}
       <Cards cards={cards} />
     </div>
   );
@@ -95,7 +89,7 @@ export function ExperiencePanel({ experience }: { experience?: Async<ExperienceR
   return (
     <div className="experience">
       <button className="link-button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        💬 不知道怎么处理？{supplementOnly ? "看看几个参考思路。" : "看看别人怎么做过。"}
+        💬 {supplementOnly ? "看看几个参考思路。" : "看看知乎朋友们是怎么选择的"}
       </button>
       {open &&
         (experience.status === "pending" ? (

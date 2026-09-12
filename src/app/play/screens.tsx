@@ -109,7 +109,7 @@ export function IntentInput(props: {
   values: string[];
   pending: boolean;
   error: string | null;
-  /** Real Zhihu experiences for the ticked plans; sits beside the statistics in block 04. */
+  /** Real Zhihu advice on choosing after graduation; its own block 05. */
   experience?: ReactNode;
   onTextChange(value: string): void;
   onTogglePlan(plan: string): void;
@@ -184,8 +184,11 @@ export function IntentInput(props: {
         />
       </Block>
 
-      <Block n="04" title="看看大家都在选什么" onEnter={() => setActive(4)} className="act1-split">
+      <Block n="04" title="看看大家都在选什么" onEnter={() => setActive(4)}>
         <GraduationStats />
+      </Block>
+
+      <Block n="05" title="看看知乎朋友们怎么推荐" onEnter={() => setActive(5)}>
         {props.experience}
       </Block>
 
