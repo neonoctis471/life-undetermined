@@ -533,6 +533,20 @@ export function OutcomePending(props: { state: GameState; status: Async<unknown>
   );
 }
 
+function TallyColumn({ title, items }: { title: string; items: readonly string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className="record-title">{title}</p>
+      <ul className="tally-list">
+        {items.map((item, index) => (
+          <li key={`${index}-${item}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /**
  * What the experience left behind, as opposed to what happened. Absent on saves
  * written before reflection existed, and whenever the model had nothing worth
@@ -578,8 +592,10 @@ export function OutcomeView(props: {
       <div className="outcome-split">
         <div className="outcome-story">
           <p className="scene">{outcome.narrative}</p>
-          {outcome.gains.length > 0 && <p className="meta">收获：{outcome.gains.join(" / ")}</p>}
-          {outcome.costs.length > 0 && <p className="meta">代价：{outcome.costs.join(" / ")}</p>}
+          <div className="tally">
+            <TallyColumn title="收获" items={outcome.gains} />
+            <TallyColumn title="代价" items={outcome.costs} />
+          </div>
         </div>
         <div className="record panel">
           <p className="record-title">{DISPLAY.factsTitle}</p>

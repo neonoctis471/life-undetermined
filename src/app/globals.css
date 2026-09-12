@@ -303,8 +303,9 @@ a {
   width: min(1040px, 100%);
 }
 
-.stage:has(.pair) {
-  width: min(760px, 100%);
+.stage:has(.pair),
+.stage:has(.outcome-split) {
+  width: min(820px, 100%);
 }
 
 /* Fades out on the right so the wash meets the line field instead of ending
@@ -1082,13 +1083,38 @@ textarea:focus-visible {
   color: var(--ink-3);
 }
 
+.tally {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+
+.tally-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tally-list li {
+  padding: 5px 0;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
 .unresolved {
   grid-column: 1 / -1;
-  padding-top: 6px;
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
 }
 
 .unresolved .muted {
   margin: 0 0 6px;
+  font-size: 15px;
+  line-height: 1.7;
 }
 
 /*
@@ -1105,15 +1131,15 @@ textarea:focus-visible {
 
 .reflection-list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 34px;
-  margin: 8px 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 0 40px;
+  margin: 10px 0 0;
   padding: 0;
   list-style: none;
 }
 
 .reflection-list li {
-  padding: 16px 0;
+  padding: 20px 0;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -1121,7 +1147,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin: 0 0 6px;
+  margin: 0 0 9px;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.16em;
@@ -1139,8 +1165,8 @@ textarea:focus-visible {
 .reflection-text {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: clamp(15px, 1.1vw, 18px);
-  line-height: 1.85;
+  font-size: clamp(17px, 1.3vw, 20px);
+  line-height: 1.9;
 }
 
 /* What may follow is not what will: hold it a step back from the rest. */
@@ -1450,7 +1476,8 @@ blockquote {
   }
 
   .stage-wide,
-  .stage:has(.pair) {
+  .stage:has(.pair),
+  .stage:has(.outcome-split) {
     width: 100%;
   }
 
@@ -1480,8 +1507,13 @@ blockquote {
 
   .pair,
   .outcome-split,
-  .reflection-list {
+  .reflection-list,
+  .tally {
     grid-template-columns: 1fr;
+  }
+
+  .tally > div + div {
+    margin-top: 14px;
   }
 
   .act-opt {
