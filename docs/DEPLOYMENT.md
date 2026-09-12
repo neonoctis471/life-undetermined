@@ -3,10 +3,13 @@
 ## 当前线上
 
 - 作品名：《人生未定式》
-- 正式地址：https://eilnoctis.com（`www.eilnoctis.com` 301 到主域名）
+- 对外 Demo 地址：https://indeterminate.eilnoctis.com （生产；所有对外材料一律用这个地址）
+- 阶段验收地址：https://preview.eilnoctis.com （指向最新 preview 部署，公开可访问）
+- `eilnoctis.com` 与 `www.eilnoctis.com`：仍绑在本项目上，不做重定向、暂不解绑；比赛结束后腾给个人站
 - 备用地址：https://twice-eta.vercel.app（`*.vercel.app` 在中国大陆直连会被重置，仅供代理环境使用）
 - Vercel 项目：`neonoctis471s-projects/twice`，CLI 从本地文件部署，未接 Git 集成
-- DNS（DNSPod）：`@ A 76.76.21.21`，`www CNAME cname.vercel-dns.com`
+- DNS（DNSPod）：`@ A 76.76.21.21`，`www / indeterminate / preview` 均 CNAME 指向 `cname.vercel-dns.com`。记录值要逐字符核对：写错（例如 `came.verve-dns.com`）时 Vercel 证书签发会失败，域名直接 ERR_CONNECTION_CLOSED，而 Vercel 后台只显示 Invalid Configuration。
+- Primary Domain 只能在 Vercel 控制台 Project → Settings → Domains 点「Set as Primary Domain」。REST API 没有这个能力：域名接口只有 add / list / get / verify / move，`PATCH /v9/projects/twice/domains/<domain>` 带 `{"primary":true}` 被拒。
 
 本机主机名含中文，Vercel CLI 会因非 ASCII 请求头崩溃。运行 CLI 前用 `NODE_OPTIONS=--require <ascii-hostname.cjs>` 只为 CLI 进程改写 `os.hostname()`。
 
