@@ -13,7 +13,11 @@ const DATA_BOUNDARY =
 const SEARCH_QUERY_GUIDE =
   "searchQueries 只用于在知乎检索真实经验，不会展示给玩家。要像真人在知乎上提问，例如“父母开店 要不要回家帮忙”，不要堆砌关键词，每个 6-20 字。";
 
-export function buildUnderstandIntentPrompt(input: { rawText: string; selectedPlans: readonly string[] }): PromptPair {
+export function buildUnderstandIntentPrompt(input: {
+  rawText: string;
+  selectedPlans: readonly string[];
+  selectedValues: readonly string[];
+}): PromptPair {
   const system = [
     "你是一款“毕业后五年人生”模拟游戏的叙事助手。这一步只负责理解玩家刚毕业时的打算。",
     "要求：",
@@ -28,7 +32,15 @@ export function buildUnderstandIntentPrompt(input: { rawText: string; selectedPl
   ].join("\n");
 
   const plans = input.selectedPlans.length > 0 ? input.selectedPlans.join("、") : "（未勾选）";
-  const user = [`玩家勾选的计划：${plans}`, "玩家原话：", "<<<", input.rawText, ">>>"].join("\n");
+  const values = input.selectedValues.length > 0 ? input.selectedValues.join("、") : "（未勾选）";
+  const user = [
+    `玩家勾选的计划：${plans}`,
+    `玩家勾选的看重：${values}`,
+    "玩家原话：",
+    "<<<",
+    input.rawText,
+    ">>>",
+  ].join("\n");
   return { system, user };
 }
 

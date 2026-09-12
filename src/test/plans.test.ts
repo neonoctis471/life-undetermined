@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { IntentCandidateSchema, SearchQueryTextSchema } from "@/ai/contracts";
-import { PLAN_GROUPS, PLAN_OPTIONS, draftIntentFromPlans, planQueries } from "@/app/play/plans";
+import { PLAN_GROUPS, PLAN_OPTIONS, VALUE_OPTIONS, draftIntentFromPlans, planQueries } from "@/app/play/plans";
 import { intentKeywords } from "@/zhihu/rank";
 
 describe("Act 1 plan options", () => {
@@ -61,5 +61,19 @@ describe("planQueries", () => {
 
   it("is empty when nothing matches", () => {
     expect(planQueries(["凭空捏造的打算"])).toEqual([]);
+  });
+});
+
+describe("Act 1 value options", () => {
+  it("has unique labels that fit the request schema", () => {
+    expect(VALUE_OPTIONS.length).toBeGreaterThan(0);
+    expect(new Set(VALUE_OPTIONS).size).toBe(VALUE_OPTIONS.length);
+    for (const value of VALUE_OPTIONS) expect(value.length).toBeLessThanOrEqual(40);
+  });
+
+  it("stays out of the Zhihu lookup", () => {
+    // Values are not plans: ticking one must not add a search phrase.
+    expect(planQueries([...VALUE_OPTIONS])).toEqual([]);
+    expect(draftIntentFromPlans([...VALUE_OPTIONS], "")).toBeNull();
   });
 });

@@ -70,7 +70,11 @@ export interface AiServiceDependencies {
 export async function runAiOperation(request: AiRequest, deps: AiServiceDependencies): Promise<AiResponseData> {
   switch (request.operation) {
     case "UNDERSTAND_INTENT": {
-      const context = { rawText: request.input.rawText, selectedPlans: request.input.selectedPlans };
+      const context = {
+        rawText: request.input.rawText,
+        selectedPlans: request.input.selectedPlans,
+        selectedValues: request.input.selectedValues,
+      };
       const generated = await generateWithRetry(
         request.operation,
         { tier: "FAST", ...buildUnderstandIntentPrompt(context), maxTokens: 800 },

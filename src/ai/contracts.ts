@@ -239,6 +239,8 @@ export const UnderstandIntentRequestSchema = z
           .max(MAX_RAW_TEXT_LENGTH)
           .refine((value) => value.trim().length > 0, { message: "rawText must not be blank" }),
         selectedPlans: z.array(ShortTextSchema.max(40)).max(12).default([]),
+        /** What the player says they care about; backs Intent.priorities. */
+        selectedValues: z.array(ShortTextSchema.max(40)).max(12).default([]),
       })
       .strict(),
   })

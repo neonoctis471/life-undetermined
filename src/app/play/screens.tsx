@@ -14,7 +14,7 @@ import { describeDecisionAction } from "@/game/labels";
 import type { Timed } from "./ai-client";
 import { DISPLAY } from "./copy";
 import type { Side } from "./field/target";
-import { PLAN_GROUPS } from "./plans";
+import { PLAN_GROUPS, VALUE_OPTIONS } from "./plans";
 
 export type Async<T> =
   | { status: "idle" }
@@ -87,12 +87,14 @@ export function Hero({ onStart }: { onStart(): void }) {
 export function IntentInput(props: {
   rawText: string;
   plans: string[];
+  values: string[];
   pending: boolean;
   error: string | null;
   /** Real Zhihu experiences for the ticked plans; rendered between chips and free text. */
   experience?: ReactNode;
   onTextChange(value: string): void;
   onTogglePlan(plan: string): void;
+  onToggleValue(value: string): void;
   onSubmit(): void;
 }) {
   return (
@@ -118,6 +120,22 @@ export function IntentInput(props: {
         </div>
       ))}
       {props.experience}
+      <div className="plan-group">
+        <p className="plan-group-title">你最看重的</p>
+        <div className="plan-grid" role="group" aria-label="你最看重的">
+          {VALUE_OPTIONS.map((value) => (
+            <button
+              key={value}
+              className="chip"
+              aria-pressed={props.values.includes(value)}
+              onClick={() => props.onToggleValue(value)}
+              disabled={props.pending}
+            >
+              {value}
+            </button>
+          ))}
+        </div>
+      </div>
       <label className="field-label" htmlFor="intent-text">
         我真正的想法
       </label>

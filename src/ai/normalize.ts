@@ -118,14 +118,20 @@ const DEFAULT_CURRENT_STATE = "五年过去了，生活还在按自己的节奏�
 export interface IntentContext {
   rawText: string;
   selectedPlans: readonly string[];
+  /** What the player ticked under "你最看重的"; the default for priorities. */
+  selectedValues: readonly string[];
 }
 
 export function normalizeIntentDraft(raw: unknown, context: IntentContext): UnderstandIntentResult {
   const draft = parseDraft(AiDraftIntentSchema, raw);
   const plans = cleanList(context.selectedPlans, { maxItems: 3, maxLength: LIMITS.listItem });
+  const values = cleanList(context.selectedValues, { maxItems: 3, maxLength: LIMITS.listItem });
 
   const goals = orDefault(cleanList(draft.goals, { maxItems: 6, maxLength: LIMITS.listItem }), plans.length ? plans : [DEFAULT_GOAL]);
-  const priorities = orDefault(cleanList(draft.priorities, { maxItems: 6, maxLength: LIMITS.listItem }), [DEFAULT_PRIORITY]);
+  const priorities = orDefault(
+    cleanList(draft.priorities, { maxItems: 6, maxLength: LIMITS.listItem }),
+    values.length ? values : [DEFAULT_PRIORITY],
+  );
   const constraints = cleanList(draft.constraints, { maxItems: 6, maxLength: LIMITS.listItem });
   const currentActions = orDefault(
     cleanList(draft.currentActions, { maxItems: 4, maxLength: LIMITS.listItem }),

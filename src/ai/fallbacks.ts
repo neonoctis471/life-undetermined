@@ -13,7 +13,7 @@ export function buildFallbackIntentDraft(context: IntentContext): Record<string,
   return {
     summary: `你是这样说的：“${quoted}”。接下来，我们就从这个打算出发。`,
     goals: context.selectedPlans.length > 0 ? context.selectedPlans.slice(0, 3) : ["按自己的节奏开始毕业后的生活"],
-    priorities: ["弄清自己真正想要什么"],
+    priorities: context.selectedValues.length > 0 ? context.selectedValues.slice(0, 3) : ["弄清自己真正想要什么"],
     constraints: [],
     currentActions: ["把计划里的第一步具体安排下来"],
   };

@@ -29,6 +29,7 @@ function sequentialIds() {
 const intentContext = {
   rawText: "我想先回家帮家里做店里的事情，同时学剪辑试着拍视频。",
   selectedPlans: ["帮家里做生意", "做自媒体"],
+  selectedValues: ["离家人近一点", "学到真本事"],
 };
 
 describe("normalizeIntentDraft", () => {
@@ -42,6 +43,17 @@ describe("normalizeIntentDraft", () => {
     expect(result.intent.constraints).toEqual([]);
     expect(result.summary.length).toBeGreaterThan(0);
     expect(IntentSchema.safeParse({ ...result.intent, confirmedAt: timestamp }).success).toBe(true);
+  });
+
+  it("falls back to the ticked values for priorities", () => {
+    const result = normalizeIntentDraft({ priorities: [] }, intentContext);
+    expect(result.intent.priorities).toEqual(intentContext.selectedValues);
+  });
+
+  it("still has a priority when nothing was ticked", () => {
+    const result = normalizeIntentDraft({}, { ...intentContext, selectedValues: [] });
+    expect(result.intent.priorities).toHaveLength(1);
+    expect(IntentCandidateSchema.safeParse(result.intent).success).toBe(true);
   });
 
   it("repairs messy model output instead of rejecting it", () => {

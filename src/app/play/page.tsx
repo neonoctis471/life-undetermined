@@ -99,6 +99,7 @@ export default function PlayPage() {
   const gameState = useGameState();
   const [rawText, setRawText] = useState("");
   const [plans, setPlans] = useState<string[]>([]);
+  const [values, setValues] = useState<string[]>([]);
   const [heroOpen, setHeroOpen] = useState(true);
   const [hovered, setHovered] = useState<Side>(0);
   const [understanding, setUnderstanding] = useState<Async<Timed<UnderstandIntentResponseData>>>(IDLE);
@@ -212,7 +213,12 @@ export default function PlayPage() {
   // Screens 2-3 -------------------------------------------------------------
 
   const submitIntent = async () => {
-    const text = rawText.trim() || (plans.length > 0 ? `我打算：${plans.join("、")}。` : "");
+    const spoken = rawText.trim();
+    const text =
+      spoken ||
+      (plans.length > 0
+        ? `我打算：${plans.join("、")}。${values.length > 0 ? `我比较看重：${values.join("、")}。` : ""}`
+        : "");
     if (!text) {
       setNotice("写一句你的打算，或者至少选一个计划。");
       return;
@@ -224,7 +230,7 @@ export default function PlayPage() {
     setExperiences({});
     setUnderstanding({ status: "pending" });
     try {
-      const value = await requestUnderstandIntent({ rawText: text, selectedPlans: plans });
+      const value = await requestUnderstandIntent({ rawText: text, selectedPlans: plans, selectedValues: values });
       if (session.current !== token) return;
       setUnderstanding({ status: "ready", value });
       // Prefetch DAY_8 while the player reads "我理解的是这样，对吗？".
@@ -496,6 +502,7 @@ export default function PlayPage() {
           <IntentInput
             rawText={rawText}
             plans={plans}
+            values={values}
             pending={understanding.status === "pending"}
             error={understanding.status === "error" ? understanding.message : null}
             experience={
@@ -507,6 +514,10 @@ export default function PlayPage() {
               setPlanExperience(IDLE);
               setPlans((current) => (current.includes(plan) ? current.filter((item) => item !== plan) : [...current, plan]));
             }}
+            onToggleValue={(value) =>
+              // Values only shape the Intent, so the Zhihu panel is left alone.
+              setValues((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]))
+            }
             onSubmit={submitIntent}
           />
         );

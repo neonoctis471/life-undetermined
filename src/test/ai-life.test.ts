@@ -74,7 +74,7 @@ describe("hedged AI attempts", () => {
 
   const request = {
     operation: "UNDERSTAND_INTENT" as const,
-    input: { rawText: "回家帮忙，同时拍视频。", selectedPlans: [] },
+    input: { rawText: "回家帮忙，同时拍视频。", selectedPlans: [], selectedValues: [] },
   };
   const fastPolicy = { UNDERSTAND_INTENT: { callTimeoutMs: 5_000, budgetMs: 60_000, hedgeAfterMs: 20 } };
   let next = 0;

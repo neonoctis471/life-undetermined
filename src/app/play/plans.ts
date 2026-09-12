@@ -63,6 +63,23 @@ export const PLAN_GROUPS: readonly PlanGroup[] = [
 
 export const PLAN_OPTIONS: readonly PlanOption[] = PLAN_GROUPS.flatMap((group) => group.options);
 
+/**
+ * Act 1 value chips. They say what the player cares about, so they back
+ * Intent.priorities. Unlike the plan chips they never drive a Zhihu lookup:
+ * "稳定一点" matches nothing useful on its own and would only loosen ranking.
+ */
+export const VALUE_OPTIONS: readonly string[] = [
+  "收入和存款",
+  "稳定和安全感",
+  "做自己真正喜欢的事",
+  "离家人近一点",
+  "学到真本事",
+  "时间由自己支配",
+  "被看见、被认可",
+  "身体和心情别垮掉",
+];
+
+
 /** Up to three phrases, in the order the options are listed. */
 export function planQueries(plans: readonly string[]): string[] {
   return PLAN_OPTIONS.filter((option) => plans.includes(option.label))
