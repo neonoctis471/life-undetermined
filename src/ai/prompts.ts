@@ -90,6 +90,29 @@ export function buildGenerateSituationPrompt(input: {
   return { system, user: lines.join("\n") };
 }
 
+/*
+ * facts 回答「真正发生了什么」，reflection 回答「这件事在玩家身上留下了什么」。
+ * 两者的权限不同：facts 是硬事实，后面的剧情可以直接依赖；reflection 是一段
+ * 经历留下的痕迹，以后只能被参考，不能当成玩家的固定特质或必然行为。
+ */
+const REFLECTION_GUIDE = [
+  "",
+  "reflection：这次经历在玩家身上留下了什么。宁可少写，也不要凑数——真正明显、真正有依据的才写，0-6 条，没有就给 []。",
+  "每条 {\"kind\": 见下, \"content\": \"不超过 50 字\", \"horizon\": \"IMMEDIATE|LASTING|POSSIBLE\", \"factIndexes\": [支持这一条的 facts 编号，从 1 开始，没有就 []]}。",
+  "kind 只能是：METHOD 处理事情的方式 / PERSPECTIVE 新的视角 / SELF_KNOWLEDGE 对自己的了解 / RELATIONSHIP 人际与沟通 / REALITY 现实经验 / RESOURCE 资源与机会 / COST 付出的代价 / EXPOSED 暴露出的问题 / FIRST_TIME 第一次。",
+  "horizon：IMMEDIATE 当下就拿到的；LASTING 会慢慢留下的；POSSIBLE 以后可能影响玩家的——POSSIBLE 的 content 必须带「可能」「也许」「更愿意」这类不确定说法，绝不能写成一定会怎样。",
+  "写 3 条以上时，尽量不要全部落在同一层。最容易被漏掉的是 POSSIBLE 那一层：这次经历以后可能怎样改变玩家的做法，有就写一条。",
+  "硬规则：",
+  "a. 每一条都必须能追溯到这次的情境、决定或 facts。不要夸玩家，不要写没有依据的东西。",
+  "b. 禁止鸡汤和人格总结：不写「你变得更成熟了」「这次失败让你成长」「你的沟通能力提升了」「困难磨炼了你的意志」「你是一个重视家庭的人」这类句子。",
+  "c. 只写玩家做过什么、看到了什么、付出了什么，让玩家自己去理解这意味着什么。比如写「这是你第一次主动和公司协商时间，而不是直接放弃其中一个安排」，而不是「你学会了沟通」。",
+  "c2. 不要只把刚才的动作换句话说一遍。「你和家人协商了时间」是已经写在 facts 里的事；reflection 要写这件事留下了什么，例如它和以前的做法有什么不同、让玩家看见了什么、换掉了什么。写成「X，而不是 Y」这种对照句往往更准。",
+  "d. 顺利的结果同样可以有代价、暴露的问题和没解决的事；不顺利的结果同样可以有新的视角、可复用的方法和意外的机会。不要按好坏套模板，也不要强行正能量。",
+  "e. FIRST_TIME 只在确实是人生第一次、且这件事本身够分量时才写，它不是成就也不是奖励。facts 里如果出现了「第一次……」这样的事，优先考虑给它一条 FIRST_TIME。",
+  "f. 不要过度解读：玩家只是发了一条消息，就不要写成「你开始建立职业主体性」。优先写具体的，少写抽象的。",
+  "g. 已经写进 unresolvedConsequences 的内容不要在 reflection 里重复。",
+].join("\n");
+
 export function buildResolveOutcomePrompt(input: {
   intent: IntentCandidate;
   situation: Situation;
@@ -107,9 +130,10 @@ export function buildResolveOutcomePrompt(input: {
     "4. 不要与已发生的事实矛盾，也不要改写它们；不要提及知乎或网友经历。",
     `5. ${DATA_BOUNDARY}`,
     "只输出一个 JSON 对象，结构如下：",
-    '{"narrative": "100-200 字，第二人称“你”，写出做了这个决定之后具体发生了什么", "gains": ["收获，0-3 条，每条不超过 16 字"], "costs": ["代价，0-3 条，每条不超过 16 字"], "unresolvedConsequences": ["还没解决、之后可能发酵的事，0-2 条"], "facts": [{"kind": "ACTIVITY|EDUCATION|EMPLOYMENT|FINANCE|SKILL|RELATIONSHIP|LOCATION|RESPONSIBILITY|CREATION|EXTERNAL 之一", "statement": "不超过 30 字的客观事实", "causalReasons": ["PLAYER_DECISION、PRIOR_FACT 或 MIXED_CAUSE"], "dependsOnFactIndexes": [这条事实依赖的已发生事实编号，没有就写 []]}]}',
+    '{"narrative": "100-200 字，第二人称“你”，写出做了这个决定之后具体发生了什么", "gains": ["收获，0-3 条，每条不超过 16 字"], "costs": ["代价，0-3 条，每条不超过 16 字"], "unresolvedConsequences": ["还没解决、之后可能发酵的事，0-2 条"], "facts": [{"kind": "ACTIVITY|EDUCATION|EMPLOYMENT|FINANCE|SKILL|RELATIONSHIP|LOCATION|RESPONSIBILITY|CREATION|EXTERNAL 之一", "statement": "不超过 30 字的客观事实", "causalReasons": ["PLAYER_DECISION、PRIOR_FACT 或 MIXED_CAUSE"], "dependsOnFactIndexes": [这条事实依赖的已发生事实编号，没有就写 []]}], "reflection": [见下，没有就写 []]}',
     "facts 写 2-4 条，写已经真实发生的事，而不是感受或计划；它们会成为玩家人生中真正发生过的事，后面的剧情只能从这些事实出发。",
     "causalReasons：PLAYER_DECISION 表示直接由这次决定造成；PRIOR_FACT 表示由之前的事实造成；MIXED_CAUSE 表示两者共同造成。",
+    REFLECTION_GUIDE,
   ].join("\n");
 
   const { intent, situation, possibility } = input;

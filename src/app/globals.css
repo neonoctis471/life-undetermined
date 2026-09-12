@@ -1091,6 +1091,64 @@ textarea:focus-visible {
   margin: 0 0 6px;
 }
 
+/*
+ * What the experience left behind. A record, not a reward: no badges, no
+ * counters, no levels. Plain labels, serif text, hairlines — the same voice as
+ * the rest of the page, just quieter.
+ */
+
+.reflection {
+  margin: 30px 0 4px;
+  padding-top: 22px;
+  border-top: 1px solid var(--ink);
+}
+
+.reflection-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 34px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reflection-list li {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.reflection-kind {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--ink-3);
+}
+
+/* A first time is worth marking, but with printed ink — it already happened. */
+.reflection-mark {
+  width: 6px;
+  height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+}
+
+.reflection-text {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(15px, 1.1vw, 18px);
+  line-height: 1.85;
+}
+
+/* What may follow is not what will: hold it a step back from the rest. */
+.reflection-list li[data-horizon="POSSIBLE"] .reflection-text {
+  color: var(--ink-2);
+  font-style: italic;
+}
+
 /* The fork: two possibilities at full size, side by side. */
 
 .pair {
@@ -1421,7 +1479,8 @@ blockquote {
   }
 
   .pair,
-  .outcome-split {
+  .outcome-split,
+  .reflection-list {
     grid-template-columns: 1fr;
   }
 

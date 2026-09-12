@@ -103,12 +103,20 @@ export const AiDraftFactSchema = z.object({
   dependsOnFactIndexes: looseIndexList,
 });
 
+export const AiDraftReflectionSchema = z.object({
+  kind: looseText,
+  content: looseText,
+  horizon: looseText,
+  factIndexes: looseIndexList,
+});
+
 export const AiDraftOutcomeSchema = z.object({
   narrative: looseText,
   gains: looseTextList,
   costs: looseTextList,
   unresolvedConsequences: looseTextList,
   facts: looseArray,
+  reflection: looseArray,
 });
 
 export const AiDraftTimelinePointSchema = z.object({
@@ -138,6 +146,7 @@ export const AiDraftLifeSchema = z.object({
 export type AiDraftIntent = z.infer<typeof AiDraftIntentSchema>;
 export type AiDraftSituation = z.infer<typeof AiDraftSituationSchema>;
 export type AiDraftOutcome = z.infer<typeof AiDraftOutcomeSchema>;
+export type AiDraftReflection = z.infer<typeof AiDraftReflectionSchema>;
 export type AiDraftLife = z.infer<typeof AiDraftLifeSchema>;
 
 // ---------------------------------------------------------------------------

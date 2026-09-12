@@ -2,6 +2,8 @@ import type { ZodType } from "zod";
 
 import {
   FactKindSchema,
+  ReflectionHorizonSchema,
+  ReflectionKindSchema,
   ResolvedOutcomeSchema,
   type Action,
   type CausalReason,
@@ -9,6 +11,9 @@ import {
   type FactKind,
   type FactProposal,
   type Possibility,
+  type ReflectionHorizon,
+  type ReflectionItem,
+  type ReflectionKind,
   type ResolvedOutcome,
   type Situation,
 } from "@/contracts/game";
@@ -19,6 +24,7 @@ import {
   AiDraftIntentSchema,
   AiDraftLifeSchema,
   AiDraftOutcomeSchema,
+  AiDraftReflectionSchema,
   AiDraftSituationSchema,
   AiDraftTimelinePointSchema,
   SimulateLifeResultSchema,
@@ -63,6 +69,8 @@ export const POSSIBILITY_TITLES = {
 export const CUSTOM_ACTION_LABEL = "我有自己的办法";
 export const MAX_PRESET_ACTIONS = 4;
 export const MAX_OUTCOME_FACTS = 4;
+/** Fewer, better: the prompt asks for 3-6 and padding is worse than silence. */
+export const MAX_REFLECTION_ITEMS = 6;
 export const MAX_TIMELINE_POINTS = 6;
 export const MAX_COMMEMORATIVE_FACTS = 24;
 const MIN_TIMELINE_POINTS = 2;
@@ -73,6 +81,7 @@ const MAX_SEARCH_QUERIES = 2;
 
 const LIMITS = {
   listItem: 40,
+  reflection: 120,
   action: 30,
   condition: 60,
   summary: 600,
@@ -320,10 +329,89 @@ export function normalizeOutcomeDraft(
       costs: cleanList(draft.costs, { maxItems: 4, maxLength: LIMITS.listItem }),
       addedFacts,
       unresolvedConsequences: cleanList(draft.unresolvedConsequences, { maxItems: 3, maxLength: LIMITS.listItem }),
+      reflection: normalizeReflection(draft.reflection, addedFacts.length),
       validation: context.validation,
     },
     "Outcome",
   );
+}
+
+/** Chinese labels the model may echo back instead of the enum name. */
+const REFLECTION_ALIASES: Record<string, ReflectionKind> = {
+  方法: "METHOD",
+  做事方式: "METHOD",
+  处理事情的方式: "METHOD",
+  视角: "PERSPECTIVE",
+  新的视角: "PERSPECTIVE",
+  判断: "PERSPECTIVE",
+  对自己的了解: "SELF_KNOWLEDGE",
+  自我认识: "SELF_KNOWLEDGE",
+  人际: "RELATIONSHIP",
+  关系: "RELATIONSHIP",
+  沟通: "RELATIONSHIP",
+  现实: "REALITY",
+  现实经验: "REALITY",
+  规则: "REALITY",
+  资源: "RESOURCE",
+  机会: "RESOURCE",
+  人脉: "RESOURCE",
+  代价: "COST",
+  付出的代价: "COST",
+  取舍: "COST",
+  暴露: "EXPOSED",
+  暴露出的问题: "EXPOSED",
+  不足: "EXPOSED",
+  第一次: "FIRST_TIME",
+};
+
+function normalizeReflectionKind(value: string | undefined): ReflectionKind {
+  const raw = value?.trim() ?? "";
+  const parsed = ReflectionKindSchema.safeParse(raw.toUpperCase().replace(/[\s-]+/g, "_"));
+  if (parsed.success) return parsed.data;
+  return REFLECTION_ALIASES[raw] ?? "PERSPECTIVE";
+}
+
+function normalizeReflectionHorizon(value: string | undefined): ReflectionHorizon {
+  const parsed = ReflectionHorizonSchema.safeParse(value?.trim().toUpperCase());
+  if (parsed.success) return parsed.data;
+  const raw = value?.trim() ?? "";
+  if (raw.includes("当下") || raw.includes("立刻") || raw.includes("现在")) return "IMMEDIATE";
+  if (raw.includes("可能") || raw.includes("以后") || raw.includes("将来")) return "POSSIBLE";
+  return "LASTING";
+}
+
+/**
+ * Reflection is the optional half of an Outcome. A malformed item is dropped;
+ * a malformed list yields undefined. Under no circumstances may it throw — the
+ * Facts in the same Outcome are hard state and must survive regardless.
+ */
+function normalizeReflection(raw: unknown, factCount: number): ReflectionItem[] | undefined {
+  try {
+    const items: ReflectionItem[] = [];
+    for (const entry of Array.isArray(raw) ? raw : []) {
+      // Objects only. A bare string carries no kind and no evidence, and is far
+      // more often noise ("不知道", "无") than something worth showing — padding
+      // the list is worse than leaving it short.
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const parsed = AiDraftReflectionSchema.safeParse(entry);
+      if (!parsed.success) continue;
+      const content = cleanText(parsed.data.content, LIMITS.reflection);
+      if (!content || items.some((item) => item.content === content)) continue;
+      items.push({
+        kind: normalizeReflectionKind(parsed.data.kind),
+        content,
+        horizon: normalizeReflectionHorizon(parsed.data.horizon),
+        // 1-based from the model, and only into the Facts this Outcome wrote.
+        evidenceFactIndexes: [
+          ...new Set((parsed.data.factIndexes ?? []).map((index) => index - 1).filter((index) => index >= 0 && index < factCount)),
+        ].slice(0, 4),
+      });
+      if (items.length >= MAX_REFLECTION_ITEMS) break;
+    }
+    return items.length > 0 ? items : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function normalizeFactDraft(item: unknown, context: OutcomeContext): FactProposal | null {

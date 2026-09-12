@@ -7,9 +7,9 @@ import type {
   MainChapter,
   UnderstandIntentResponseData,
 } from "@/ai/contracts";
-import type { Action, Fact } from "@/contracts/game";
+import type { Action, Fact, ReflectionItem } from "@/contracts/game";
 import type { GameState } from "@/game-state";
-import { describeDecisionAction } from "@/game/labels";
+import { REFLECTION_LABELS, describeDecisionAction } from "@/game/labels";
 
 import type { Timed } from "./ai-client";
 import { DISPLAY } from "./copy";
@@ -533,6 +533,31 @@ export function OutcomePending(props: { state: GameState; status: Async<unknown>
   );
 }
 
+/**
+ * What the experience left behind, as opposed to what happened. Absent on saves
+ * written before reflection existed, and whenever the model had nothing worth
+ * saying — both render as nothing at all, never as an empty heading.
+ */
+function Reflection({ items }: { items?: readonly ReflectionItem[] }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <section className="reflection">
+      <p className="record-title">这件事，在你身上留下了什么</p>
+      <ul className="reflection-list">
+        {items.map((item, index) => (
+          <li key={`${index}-${item.content}`} data-horizon={item.horizon}>
+            <p className="reflection-kind">
+              {item.kind === "FIRST_TIME" && <span className="reflection-mark" aria-hidden="true" />}
+              {REFLECTION_LABELS[item.kind]}
+            </p>
+            <p className="reflection-text">{item.content}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function OutcomeView(props: {
   state: GameState;
   badge?: { generation: "AI" | "FALLBACK"; elapsedMs?: number };
@@ -581,6 +606,7 @@ export function OutcomeView(props: {
           </div>
         )}
       </div>
+      <Reflection items={outcome.reflection} />
       <div className="row">
         <button className="btn btn-primary" onClick={props.onContinue}>
           {props.continueLabel}
