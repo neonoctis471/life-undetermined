@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 
 import type {
   GenerateSituationResponseData,
@@ -14,27 +14,13 @@ import { describeDecisionAction } from "@/game/labels";
 import type { Timed } from "./ai-client";
 import { DISPLAY } from "./copy";
 import type { Side } from "./field/target";
+import { PLAN_GROUPS } from "./plans";
 
 export type Async<T> =
   | { status: "idle" }
   | { status: "pending" }
   | { status: "error"; message: string }
   | { status: "ready"; value: T };
-
-export const PLAN_OPTIONS = [
-  "找专业相关工作",
-  "先找一份能养活自己的工作",
-  "考研",
-  "考公 / 考编",
-  "学习新的职业技能",
-  "自由职业 / 接单",
-  "做自媒体",
-  "尝试创业",
-  "回家发展",
-  "帮家里做生意",
-  "去别的城市试试",
-  "先休息一段时间",
-];
 
 const MAIN_CHAPTERS: readonly string[] = ["DAY_8", "MONTH_7", "YEAR_4"];
 export const isMainChapter = (chapter: string): chapter is MainChapter => MAIN_CHAPTERS.includes(chapter);
@@ -103,6 +89,8 @@ export function IntentInput(props: {
   plans: string[];
   pending: boolean;
   error: string | null;
+  /** Real Zhihu experiences for the ticked plans; rendered between chips and free text. */
+  experience?: ReactNode;
   onTextChange(value: string): void;
   onTogglePlan(plan: string): void;
   onSubmit(): void;
@@ -111,19 +99,25 @@ export function IntentInput(props: {
     <section className="screen">
       <ScreenHead eyebrow={DISPLAY.eyebrows.prologue} title={DISPLAY.intentTitle} />
       <p className="lede">可以多选，也可以直接说说自己的打算。</p>
-      <div className="plan-grid" role="group" aria-label="初步计划">
-        {PLAN_OPTIONS.map((plan) => (
-          <button
-            key={plan}
-            className="chip"
-            aria-pressed={props.plans.includes(plan)}
-            onClick={() => props.onTogglePlan(plan)}
-            disabled={props.pending}
-          >
-            {plan}
-          </button>
-        ))}
-      </div>
+      {PLAN_GROUPS.map((group) => (
+        <div className="plan-group" key={group.title}>
+          <p className="plan-group-title">{group.title}</p>
+          <div className="plan-grid" role="group" aria-label={group.title}>
+            {group.options.map((option) => (
+              <button
+                key={option.label}
+                className="chip"
+                aria-pressed={props.plans.includes(option.label)}
+                onClick={() => props.onTogglePlan(option.label)}
+                disabled={props.pending}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {props.experience}
       <label className="field-label" htmlFor="intent-text">
         我真正的想法
       </label>

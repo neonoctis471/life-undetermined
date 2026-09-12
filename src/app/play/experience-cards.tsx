@@ -45,6 +45,47 @@ function SupplementExperience({ card }: { card: SupplementCard }) {
   );
 }
 
+function Cards({ cards }: { cards: ExperienceResponseData["cards"] }) {
+  return cards.map((card, index) =>
+    card.provenance === "AI_SUPPLEMENT" ? (
+      <SupplementExperience key={card.id} card={card} />
+    ) : (
+      <ZhihuExperience key={card.id} card={card} index={index} />
+    ),
+  );
+}
+
+/**
+ * Act 1 version: the player has ticked plans but written nothing yet, so the
+ * lookup only runs when they ask for it. Unlike the in-Situation panel this one
+ * stays visible after a miss — they clicked, so they get an answer either way.
+ */
+export function PlanExperiencePanel(props: {
+  experience?: Async<ExperienceResponseData>;
+  enabled: boolean;
+  onLoad(): void;
+}) {
+  const status = props.experience?.status ?? "idle";
+  const cards = props.experience?.status === "ready" ? props.experience.value.cards : [];
+  return (
+    <div className="experience experience-plan">
+      {cards.length > 0 ? (
+        // Once cards are showing there is nothing left to ask for; ticking a
+        // different plan resets the panel and brings the trigger back.
+        <p className="plan-lookup-title">💬 走过这条路的人，后来怎么样了</p>
+      ) : (
+        <button className="link-button" disabled={!props.enabled || status === "pending"} onClick={props.onLoad}>
+          💬 {props.enabled ? "看看走过这条路的人，后来怎么样了" : "先选一个打算，再看看别人怎么走的"}
+        </button>
+      )}
+      {status === "pending" && <p className="muted">正在知乎上找走过这条路的人……</p>}
+      {status === "error" && <p className="muted">这次没能找到，先按你自己的想法写吧。</p>}
+      {status === "ready" && cards.length === 0 && <p className="muted">这几个方向暂时没找到合适的回答，换一个试试。</p>}
+      <Cards cards={cards} />
+    </div>
+  );
+}
+
 /** Optional and non-blocking: hidden while idle, on error, or when there is nothing to show. */
 export function ExperiencePanel({ experience }: { experience?: Async<ExperienceResponseData> }) {
   const [open, setOpen] = useState(false);
@@ -60,13 +101,7 @@ export function ExperiencePanel({ experience }: { experience?: Async<ExperienceR
         (experience.status === "pending" ? (
           <p className="muted">正在找别人的经验……</p>
         ) : (
-          experience.value.cards.map((card, index) =>
-            card.provenance === "AI_SUPPLEMENT" ? (
-              <SupplementExperience key={card.id} card={card} />
-            ) : (
-              <ZhihuExperience key={card.id} card={card} index={index} />
-            ),
-          )
+          <Cards cards={experience.value.cards} />
         ))}
     </div>
   );

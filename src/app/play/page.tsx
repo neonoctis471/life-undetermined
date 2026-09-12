@@ -37,7 +37,7 @@ import {
 import { ForkMark } from "./brand";
 import { engineDeps, getGameStore, useGameState } from "./client-store";
 import { ACT_LABELS, DISPLAY } from "./copy";
-import { ExperiencePanel } from "./experience-cards";
+import { ExperiencePanel, PlanExperiencePanel } from "./experience-cards";
 import { LineField } from "./field/LineField";
 import { deriveFieldTarget, type FieldUi, type Side } from "./field/target";
 import { loadForkChoice, saveForkChoice, type ForkChoice } from "./fork-choice";
@@ -49,6 +49,7 @@ import {
   ReunionView,
   RewindTransition,
 } from "./late-screens";
+import { draftIntentFromPlans, planQueries } from "./plans";
 import {
   Hero,
   IntentConfirm,
@@ -103,6 +104,7 @@ export default function PlayPage() {
   const [understanding, setUnderstanding] = useState<Async<Timed<UnderstandIntentResponseData>>>(IDLE);
   const [situations, setSituations] = useState<SituationSlots>({});
   const [experiences, setExperiences] = useState<ExperienceSlots>({});
+  const [planExperience, setPlanExperience] = useState<Async<ExperienceResponseData>>(IDLE);
   const [outcome, setOutcome] = useState<Async<Timed<ResolveOutcomeResponseData>>>(IDLE);
   const [showPossibilities, setShowPossibilities] = useState(false);
   const [fiveYears, setFiveYears] = useState<LifeSlot>(IDLE);
@@ -166,6 +168,25 @@ export default function PlayPage() {
       })
       .catch(() => {
         if (session.current === token) setExperiences((current) => ({ ...current, [chapter]: { status: "error", message: "" } }));
+      });
+  };
+
+  /**
+   * Act 1 lookup, driven by the ticked chips only. The draft Intent it builds is
+   * throwaway ranking input and never reaches the engine.
+   */
+  const loadPlanExperience = () => {
+    const intent = draftIntentFromPlans(plans, rawText);
+    const queries = planQueries(plans);
+    if (!intent || queries.length === 0 || planExperience.status === "pending") return;
+    const token = session.current;
+    setPlanExperience({ status: "pending" });
+    requestExperience({ intent, situation: null, queries })
+      .then((value) => {
+        if (session.current === token) setPlanExperience({ status: "ready", value });
+      })
+      .catch(() => {
+        if (session.current === token) setPlanExperience({ status: "error", message: "" });
       });
   };
 
@@ -477,10 +498,15 @@ export default function PlayPage() {
             plans={plans}
             pending={understanding.status === "pending"}
             error={understanding.status === "error" ? understanding.message : null}
-            onTextChange={setRawText}
-            onTogglePlan={(plan) =>
-              setPlans((current) => (current.includes(plan) ? current.filter((item) => item !== plan) : [...current, plan]))
+            experience={
+              <PlanExperiencePanel experience={planExperience} enabled={plans.length > 0} onLoad={loadPlanExperience} />
             }
+            onTextChange={setRawText}
+            onTogglePlan={(plan) => {
+              // A different plan deserves a different lookup, so the panel resets.
+              setPlanExperience(IDLE);
+              setPlans((current) => (current.includes(plan) ? current.filter((item) => item !== plan) : [...current, plan]));
+            }}
             onSubmit={submitIntent}
           />
         );

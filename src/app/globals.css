@@ -347,11 +347,23 @@ a {
   cursor: pointer;
 }
 
+.plan-group {
+  margin: 0 0 22px;
+}
+
+.plan-group-title {
+  margin: 0 0 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+
 .plan-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 20px;
-  margin: 6px 0 30px;
   border-top: 1px solid var(--rule);
 }
 
@@ -568,6 +580,34 @@ textarea:focus-visible {
   margin: 22px 0 6px;
 }
 
+/* Act 1: the lookup is the point of the block, so it carries a rule of its own. */
+.experience-plan {
+  margin: 4px 0 30px;
+  padding: 16px 0 2px;
+  border-top: 2px solid var(--ink);
+}
+
+.experience-plan > .link-button {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.experience-plan > .link-button:disabled {
+  color: var(--ink-3);
+  border-bottom-color: transparent;
+  cursor: default;
+}
+
+.plan-lookup-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.experience-plan > .muted {
+  margin: 12px 0 4px;
+}
+
 .facts {
   margin: 8px 0 20px;
   padding: 0;
@@ -686,12 +726,6 @@ blockquote {
 }
 
 /* ---------------------------------------------------------------- mobile */
-
-@media (min-width: 900px) {
-  .plan-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
 
 @media (max-width: 759px) {
   .masthead-note {
