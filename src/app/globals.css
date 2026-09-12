@@ -11,11 +11,22 @@
   --ink-3: #7d828a;
   --rule: rgba(17, 17, 17, 0.13);
   --rule-strong: rgba(17, 17, 17, 0.34);
+  /* Green is ink, not neon. Printed = what already happened; live = what is
+     happening now. Nothing else on the page is allowed to be green. */
   --green: #2fbf4a;
+  --green-live: #56d94f;
+  --panel: rgba(255, 255, 255, 0.34);
+  --panel-strong: rgba(255, 255, 255, 0.72);
+  --panel-line: rgba(17, 17, 17, 0.18);
+  --lift: 0 18px 48px rgba(20, 24, 20, 0.07);
+  --mx: 0;
+  --my: 0;
   --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC",
     "Noto Sans SC", "Source Han Sans SC", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --font-heavy: var(--font-display, "PingFang SC"), var(--font-body);
+  /* Narration and quotes only — never headings, never UI chrome. */
+  --font-serif: var(--font-serif-cjk), "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", SimSun, serif;
   --gutter: clamp(20px, 4.5vw, 64px);
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
@@ -89,6 +100,131 @@ a {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- backdrop */
+
+/*
+ * Depth behind the line field. Paints above body::before (a pseudo-element of
+ * body) and below .line-field (z-index 1), so the lines stay the subject.
+ * Every layer takes a different share of --mx/--my; the spread is what reads
+ * as depth. See backdrop.tsx for where those come from.
+ */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bd-haze,
+.bd-grid,
+.bd-rings,
+.bd-polys {
+  position: absolute;
+  inset: -10%;
+}
+
+.bd-haze {
+  background:
+    radial-gradient(circle at 18% 55%, rgba(255, 255, 255, 0.5), transparent 19%),
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.52), transparent 15%),
+    radial-gradient(circle at 66% 76%, rgba(255, 255, 255, 0.24), transparent 18%);
+  filter: blur(10px);
+}
+
+.bd-grid::before,
+.bd-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.bd-grid::before {
+  background-image:
+    linear-gradient(rgba(17, 22, 18, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 22, 18, 0.055) 1px, transparent 1px);
+  background-size: 84px 84px;
+  transform: translate(calc(var(--mx) * -14px), calc(var(--my) * -12px));
+}
+
+.bd-grid::after {
+  background-image:
+    linear-gradient(rgba(17, 22, 18, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 22, 18, 0.032) 1px, transparent 1px);
+  background-size: 28px 28px;
+  transform: translate(calc(var(--mx) * 10px), calc(var(--my) * 8px));
+}
+
+.bd-ring {
+  position: absolute;
+  border: 1px solid rgba(16, 20, 16, 0.1);
+  border-radius: 50%;
+}
+
+.bd-ring-a {
+  top: -120px;
+  left: -270px;
+  width: 1100px;
+  height: 1100px;
+  transform: translate(calc(var(--mx) * -46px), calc(var(--my) * -34px));
+}
+
+.bd-ring-b {
+  top: 50px;
+  right: -100px;
+  width: 760px;
+  height: 760px;
+  transform: translate(calc(var(--mx) * 26px), calc(var(--my) * -20px));
+}
+
+.bd-ring-c {
+  bottom: -120px;
+  left: 32%;
+  width: 540px;
+  height: 540px;
+  transform: translate(calc(var(--mx) * 12px), calc(var(--my) * 24px));
+}
+
+.bd-poly {
+  position: absolute;
+  fill: none;
+  stroke: rgba(18, 24, 18, 0.14);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.bd-poly-a {
+  top: 10%;
+  left: 4%;
+  width: 260px;
+  height: 260px;
+  transform: translate(calc(var(--mx) * -22px), calc(var(--my) * -16px)) rotate(8deg);
+}
+
+.bd-poly-b {
+  top: 24%;
+  right: 8%;
+  width: 320px;
+  height: 320px;
+  transform: translate(calc(var(--mx) * 18px), calc(var(--my) * -12px)) rotate(-11deg);
+}
+
+.bd-poly-c {
+  bottom: 12%;
+  left: 14%;
+  width: 210px;
+  height: 210px;
+  transform: translate(calc(var(--mx) * -16px), calc(var(--my) * 14px)) rotate(18deg);
+}
+
+.bd-poly-d {
+  right: 20%;
+  bottom: 10%;
+  width: 280px;
+  height: 280px;
+  transform: translate(calc(var(--mx) * 14px), calc(var(--my) * 18px)) rotate(-14deg);
 }
 
 /* ---------------------------------------------------------------- field */
@@ -167,6 +303,10 @@ a {
   width: min(1040px, 100%);
 }
 
+.stage:has(.pair) {
+  width: min(760px, 100%);
+}
+
 /* Fades out on the right so the wash meets the line field instead of ending
    on a hard vertical edge. */
 .stage-wide::before {
@@ -176,8 +316,8 @@ a {
   inset: -24px calc(-1 * var(--gutter)) 0 calc(-1 * var(--gutter));
   background: linear-gradient(
     90deg,
-    rgba(244, 244, 241, 0.88) 0,
-    rgba(244, 244, 241, 0.86) 70%,
+    rgba(244, 244, 241, 0.6) 0,
+    rgba(244, 244, 241, 0.5) 70%,
     rgba(244, 244, 241, 0) 100%
   );
 }
@@ -233,14 +373,23 @@ a {
 
 .statement {
   margin: 0 0 18px;
-  font-size: 20px;
-  line-height: 1.75;
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 1.9vw, 28px);
+  line-height: 1.65;
+  letter-spacing: -0.02em;
 }
 
+/*
+ * Narration voice. AI-written prose and the player's own words are set in the
+ * serif; headings and UI stay in the sans. The serif subset is 677KB and loads
+ * with swap, so this renders in the system serif first and upgrades in place.
+ */
 .scene {
-  margin: 0 0 16px;
-  font-size: 18px;
-  line-height: 1.9;
+  margin: 0 0 18px;
+  font-family: var(--font-serif);
+  font-size: clamp(19px, 1.55vw, 24px);
+  line-height: 1.95;
+  letter-spacing: -0.01em;
   white-space: pre-wrap;
 }
 
@@ -366,6 +515,75 @@ a {
   cursor: pointer;
 }
 
+/* -------------------------------------------------------------- surfaces */
+
+/*
+ * Paper in front, lines behind. A panel is a sheet thin enough to see what has
+ * not been decided yet through it — that is why it is translucent, and why the
+ * blur matters.
+ *
+ * Blur is opt-in, not opt-out. The engine repaints the whole canvas every frame
+ * with no dirty rects, so a blurred panel over it recomputes from live pixels
+ * every frame. The engine also downgrades itself when frames get slow, which
+ * would make it cut its own lines for a cost the glass incurred. So the blur
+ * only runs at the tier the engine itself judged the device can afford.
+ */
+.panel {
+  /* --printed (0..1) comes from how many Facts the player has written; see
+     page.tsx. Thin paper early, nearly opaque by the end. */
+  background: rgba(255, 255, 255, calc(0.3 + var(--printed, 0) * 0.36));
+  border: 1px solid rgba(17, 17, 17, calc(0.15 + var(--printed, 0) * 0.1));
+  box-shadow: 0 10px 30px rgba(20, 28, 22, 0.04);
+}
+
+[data-field-tier="full"] .panel {
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+
+.panel-lift {
+  transition:
+    background-color 0.24s var(--ease-out),
+    border-color 0.24s var(--ease-out),
+    box-shadow 0.24s var(--ease-out),
+    transform 0.24s var(--ease-out);
+}
+
+.panel-lift:hover {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(17, 17, 17, 0.34);
+  box-shadow: var(--lift);
+  transform: translateY(-3px);
+}
+
+.panel-lift[aria-pressed="true"] {
+  background: var(--panel-strong);
+  border-color: var(--ink);
+  box-shadow: 0 16px 44px rgba(20, 28, 22, 0.1);
+  transform: none;
+}
+
+/* The state dot: an overprinted ring, not a glow. Paper does not glow. */
+.ink-dot {
+  position: relative;
+  display: block;
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgba(17, 17, 17, 0.42);
+  border-radius: 50%;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+[aria-pressed="true"] > .ink-dot,
+.is-live > .ink-dot {
+  background: var(--green-live);
+  border-color: #2c6a2a;
+  box-shadow: 0 0 0 5px rgba(86, 217, 79, 0.16);
+}
+
 /* ---------------------------------------------------------------- act 1 */
 
 .act1-block {
@@ -403,26 +621,18 @@ a {
 
 .plan-box {
   position: relative;
-  min-height: 74px;
-  padding: 22px 26px 12px 12px;
-  font-size: 15px;
+  min-height: 104px;
+  padding: 30px 30px 16px 16px;
+  font-size: clamp(16px, 1.25vw, 20px);
+  font-weight: 650;
   text-align: left;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid var(--rule);
   cursor: pointer;
-  transition:
-    border-color 0.2s var(--ease-out),
-    background-color 0.2s var(--ease-out);
-}
-
-.plan-box:hover {
-  border-color: var(--rule-strong);
 }
 
 .plan-box-n {
   position: absolute;
-  top: 8px;
-  left: 12px;
+  top: 11px;
+  left: 16px;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
@@ -432,26 +642,26 @@ a {
 .plan-box::after {
   content: "";
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 8px;
-  height: 8px;
-  border: 1px solid var(--ink-3);
+  top: 15px;
+  right: 15px;
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgba(17, 17, 17, 0.42);
   border-radius: 50%;
   transition:
     background-color 0.2s,
-    border-color 0.2s;
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .plan-box[aria-pressed="true"] {
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.92);
-  border-color: var(--ink);
+  font-weight: 750;
 }
 
 .plan-box[aria-pressed="true"]::after {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--green-live);
+  border-color: #2c6a2a;
+  box-shadow: 0 0 0 5px rgba(86, 217, 79, 0.16);
 }
 
 .plan-summary {
@@ -489,25 +699,20 @@ a {
 }
 
 .value-chip {
-  padding: 9px 14px;
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid var(--rule);
+  padding: 16px 20px;
+  font-size: clamp(15px, 1.1vw, 18px);
+  font-weight: 600;
   cursor: pointer;
-  transition:
-    border-color 0.2s var(--ease-out),
-    background-color 0.2s var(--ease-out);
 }
 
-.value-chip:hover {
-  border-color: var(--rule-strong);
-}
-
+/* Selected values invert: they are the one thing the player asserts about
+   themselves, so they carry ink rather than sit on paper. */
 .value-chip[aria-pressed="true"] {
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.92);
-  border-color: var(--ink);
-  box-shadow: inset 3px 0 0 var(--green);
+  color: #f7faf6;
+  background: #171c18;
+  border-color: #171c18;
+  box-shadow: 0 14px 34px rgba(20, 28, 22, 0.16);
+  transform: none;
 }
 
 /* 04 — statistics beside the Zhihu panel. */
@@ -537,8 +742,7 @@ a {
 }
 
 .stat-card {
-  border-top: 1px solid var(--rule);
-  padding-top: 10px;
+  padding: 16px 18px 14px;
 }
 
 .stat-value {
@@ -577,9 +781,10 @@ a {
   justify-content: space-between;
   gap: 16px;
   margin-top: 10px;
-  padding: 14px 0 18px;
-  background: linear-gradient(180deg, rgba(244, 244, 241, 0) 0, var(--paper) 14px);
+  padding: 16px 18px;
+  background: rgba(246, 246, 243, 0.97);
   border-top: 1px solid var(--ink);
+  box-shadow: 0 -14px 30px rgba(244, 244, 241, 0.9);
 }
 
 .act1-summary {
@@ -773,6 +978,177 @@ textarea:focus-visible {
   color: var(--ink-2);
 }
 
+/* Actions: one decision per block, numbered, with a state dot. */
+
+.act-list {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+
+.act-opt {
+  display: grid;
+  grid-template-columns: 44px 1fr 22px;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 96px;
+  padding: 0 22px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.act-opt:hover {
+  transform: translateX(3px);
+}
+
+.act-n {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+
+.act-label {
+  font-size: clamp(17px, 1.35vw, 21px);
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.act-opt .ink-dot {
+  justify-self: end;
+}
+
+/* Outcome: the story, and what it wrote into the record. */
+
+.outcome-split {
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  gap: 30px;
+  align-items: start;
+  margin: 4px 0 8px;
+}
+
+.outcome-story {
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+}
+
+.record {
+  padding: 20px 24px;
+}
+
+.record-title {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+
+.record-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.record-list li {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 16px 0;
+  font-size: 15px;
+  line-height: 1.65;
+  border-bottom: 1px solid var(--rule);
+}
+
+.record-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* Printed green: this already happened and cannot be taken back. */
+.record-tick {
+  color: var(--green);
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.record-n {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+
+.unresolved {
+  grid-column: 1 / -1;
+  padding-top: 6px;
+}
+
+.unresolved .muted {
+  margin: 0 0 6px;
+}
+
+/* The fork: two possibilities at full size, side by side. */
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 8px 0 4px;
+}
+
+.pair-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 340px;
+  padding: 28px 30px 24px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pair-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 34px;
+}
+
+.pair-n {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+
+.pair-kind {
+  font-family: var(--font-heavy);
+  font-weight: 900;
+  font-size: clamp(28px, 2.9vw, 44px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.pair-summary {
+  margin-top: 16px;
+  font-family: var(--font-serif);
+  font-size: clamp(15px, 1.05vw, 17px);
+  line-height: 1.85;
+  color: var(--ink-2);
+}
+
+.pair-foot {
+  margin-top: auto;
+  padding-top: 24px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .ledger {
   margin: 20px 0;
   border-top: 1px solid var(--rule);
@@ -861,9 +1237,11 @@ textarea:focus-visible {
 
 .echo {
   margin: 6px 0 22px;
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1.5;
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 2.4vw, 34px);
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -0.03em;
 }
 
 blockquote {
@@ -926,14 +1304,25 @@ blockquote {
   }
 }
 
+/*
+ * A line arriving is printed, not faded in: the mask wipes left to right and
+ * the tracking closes up behind it. Deliberately not opacity+translateY.
+ */
 .beat {
   opacity: 0;
-  animation: beat-in 0.7s ease forwards;
+  animation: beat-in 0.9s var(--ease-out) forwards;
 }
 
 @keyframes beat-in {
+  from {
+    opacity: 0;
+    letter-spacing: 0.22em;
+    clip-path: inset(0 100% 0 0);
+  }
   to {
     opacity: 1;
+    letter-spacing: normal;
+    clip-path: inset(0 0 0 0);
   }
 }
 
@@ -1002,8 +1391,22 @@ blockquote {
     flex: 1 1 auto;
   }
 
-  .stage-wide {
+  .stage-wide,
+  .stage:has(.pair) {
     width: 100%;
+  }
+
+  .bd-polys,
+  .bd-ring-c {
+    display: none;
+  }
+
+  .bd-grid::after {
+    display: none;
+  }
+
+  .panel {
+    background: rgba(255, 255, 255, 0.78);
   }
 
   .plan-box-grid {
@@ -1015,6 +1418,27 @@ blockquote {
     min-height: 64px;
     padding: 20px 22px 10px 10px;
     font-size: 14px;
+  }
+
+  .pair,
+  .outcome-split {
+    grid-template-columns: 1fr;
+  }
+
+  .act-opt {
+    min-height: 86px;
+    padding: 0 18px;
+    grid-template-columns: 32px 1fr 20px;
+    gap: 14px;
+  }
+
+  .pair-card {
+    min-height: 0;
+    padding: 22px 20px 20px;
+  }
+
+  .pair-top {
+    margin-bottom: 22px;
   }
 
   .act1-split,
@@ -1060,7 +1484,19 @@ blockquote {
 
   .option,
   .option::before,
-  .btn {
+  .btn,
+  .panel-lift,
+  .ink-dot {
     transition: none;
+  }
+
+  .panel-lift:hover {
+    transform: none;
+  }
+
+  .beat {
+    opacity: 1;
+    animation: none;
+    clip-path: none;
   }
 }

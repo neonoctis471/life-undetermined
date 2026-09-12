@@ -8,7 +8,7 @@ import { keyDecisionContext } from "@/game/flow";
 import { describeDecisionAction } from "@/game/labels";
 
 import { DISPLAY } from "./copy";
-import { Chevron, GenerationBadge, ScreenHead, TimeAdvance, type TimeStep } from "./screens";
+import { GenerationBadge, ScreenHead, TimeAdvance, type TimeStep } from "./screens";
 
 type Badge = { generation: "AI" | "FALLBACK"; elapsedMs?: number };
 
@@ -119,19 +119,19 @@ export function ForkChooser(props: { state: GameState; onConfirm(action: Action,
       <p className="meta">你当时选择的：</p>
       <p className="echo">「{key.label}」</p>
       <p className="lede">只替换这一个决定，此前的经历和处境都保持不变。</p>
-      <div className="option-list">
-        {alternatives.map((action) => (
-          <button key={action.id} className="action option" onClick={() => props.onConfirm(action)}>
-            <span>{action.label}</span>
-            <Chevron />
+      <div className="act-list">
+        {[...alternatives, ...(custom ? [custom] : [])].map((action, index) => (
+          <button
+            key={action.id}
+            className="act-opt panel panel-lift"
+            aria-pressed={action.kind === "CUSTOM_PLACEHOLDER" ? customOpen : undefined}
+            onClick={() => (action.kind === "PRESET" ? props.onConfirm(action) : setCustomOpen(true))}
+          >
+            <span className="act-n">{String(index + 1).padStart(2, "0")}</span>
+            <span className="act-label">{action.label}</span>
+            <span className="ink-dot" />
           </button>
         ))}
-        {custom && (
-          <button className="action option" aria-pressed={customOpen} onClick={() => setCustomOpen(true)}>
-            <span>{custom.label}</span>
-            <Chevron />
-          </button>
-        )}
       </div>
       {customOpen && custom && (
         <div className="card">

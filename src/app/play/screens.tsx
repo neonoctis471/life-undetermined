@@ -134,7 +134,7 @@ export function IntentInput(props: {
             {PLAN_OPTIONS.map((option, index) => (
               <button
                 key={option.label}
-                className="plan-box"
+                className="plan-box panel panel-lift"
                 // The number is decorative; keep it out of the accessible name.
                 aria-label={option.label}
                 aria-pressed={props.plans.includes(option.label)}
@@ -161,7 +161,7 @@ export function IntentInput(props: {
           {VALUE_OPTIONS.map((value) => (
             <button
               key={value}
-              className="value-chip"
+              className="value-chip panel panel-lift"
               aria-pressed={props.values.includes(value)}
               onClick={() => props.onToggleValue(value)}
               disabled={props.pending}
@@ -378,33 +378,38 @@ export function Possibilities(props: {
       {slot.status === "ready" && (
         <>
           <GenerationBadge generation={slot.value.data.generation} elapsedMs={slot.value.elapsedMs} />
-          <ol className="possibility-list">
+          {/*
+            The fork, at full size. Pointing at a card bends the matching bundle
+            in the field behind it — the causality is already wired through
+            onHover; the cards only had to get big enough for it to be felt.
+            Left undocumented on purpose: it is there to be found.
+          */}
+          <div className="pair">
             {slot.value.data.result.possibilities.map((possibility, index) => {
               const side: Side = possibility.kind === "MOMENTUM" ? 1 : -1;
               return (
-                <li
+                <button
                   key={possibility.id}
-                  className="possibility"
+                  className="pair-card panel panel-lift"
+                  // Without this the accessible name is the whole card blob.
+                  aria-label={DISPLAY.possibilityTitles[possibility.kind]}
                   onPointerEnter={() => props.onHover(side)}
                   onPointerLeave={() => props.onHover(0)}
+                  onFocus={() => props.onHover(side)}
+                  onBlur={() => props.onHover(0)}
+                  onClick={() => props.onChoose(possibility.kind)}
                 >
-                  <p className="index">0{index + 1}</p>
-                  <h3 className="possibility-title">{DISPLAY.possibilityTitles[possibility.kind]}</h3>
-                  <p className="possibility-summary">{possibility.summary}</p>
-                  <div>
-                    <button
-                      className="btn"
-                      onFocus={() => props.onHover(side)}
-                      onBlur={() => props.onHover(0)}
-                      onClick={() => props.onChoose(possibility.kind)}
-                    >
-                      看看这种可能
-                    </button>
-                  </div>
-                </li>
+                  <span className="pair-top">
+                    <span className="pair-n">0{index + 1}</span>
+                    <span className="ink-dot" />
+                  </span>
+                  <span className="pair-kind">{DISPLAY.possibilityTitles[possibility.kind]}</span>
+                  <span className="pair-summary">{possibility.summary}</span>
+                  <span className="pair-foot">看看这种可能 ↗</span>
+                </button>
               );
             })}
-          </ol>
+          </div>
         </>
       )}
     </section>
@@ -443,25 +448,19 @@ export function SituationView(props: {
       {props.experience}
       <h3 className="subhead">{DISPLAY.decideTitle}</h3>
       {isKeyTurn && <p className="note">这是一个会影响之后几年的决定。五年以后，你还可以回到这里，看看另一种选择。</p>}
-      <div className="actions option-list">
-        {situation.availableActions.map((action) =>
-          action.kind === "PRESET" ? (
-            <button key={action.id} className="action option" onClick={() => props.onDecide(action)}>
-              <span>{action.label}</span>
-              <Chevron />
-            </button>
-          ) : (
-            <button
-              key={action.id}
-              className="action option"
-              aria-pressed={customOpen}
-              onClick={() => setCustomOpen(true)}
-            >
-              <span>{action.label}</span>
-              <Chevron />
-            </button>
-          ),
-        )}
+      <div className="act-list">
+        {situation.availableActions.map((action, index) => (
+          <button
+            key={action.id}
+            className="act-opt panel panel-lift"
+            aria-pressed={action.kind === "CUSTOM_PLACEHOLDER" ? customOpen : undefined}
+            onClick={() => (action.kind === "PRESET" ? props.onDecide(action) : setCustomOpen(true))}
+          >
+            <span className="act-n">{String(index + 1).padStart(2, "0")}</span>
+            <span className="act-label">{action.label}</span>
+            <span className="ink-dot" />
+          </button>
+        ))}
       </div>
       {customOpen && custom && (
         <div className="card">
@@ -547,18 +546,38 @@ export function OutcomeView(props: {
       <ScreenHead eyebrow={eyebrow} title={DISPLAY.outcomeTitle} />
       {props.badge && <GenerationBadge generation={props.badge.generation} elapsedMs={props.badge.elapsedMs} />}
       {outcome.validation === "FALLBACK" && !props.badge && <GenerationBadge generation="FALLBACK" />}
-      <p className="scene">{outcome.narrative}</p>
-      {outcome.gains.length > 0 && <p className="meta">收获：{outcome.gains.join(" / ")}</p>}
-      {outcome.costs.length > 0 && <p className="meta">代价：{outcome.costs.join(" / ")}</p>}
-      {outcome.unresolvedConsequences.length > 0 && (
-        <p className="meta">还没解决的：{outcome.unresolvedConsequences.join(" / ")}</p>
-      )}
-      <h3 className="subhead">{DISPLAY.factsTitle}</h3>
-      <ul className="facts">
-        {facts.map((fact) => (
-          <li key={fact.id}>{fact.statement}</li>
-        ))}
-      </ul>
+      {/* What happened on the left, what got written down on the right. */}
+      <div className="outcome-split">
+        <div className="outcome-story">
+          <p className="scene">{outcome.narrative}</p>
+          {outcome.gains.length > 0 && <p className="meta">收获：{outcome.gains.join(" / ")}</p>}
+          {outcome.costs.length > 0 && <p className="meta">代价：{outcome.costs.join(" / ")}</p>}
+        </div>
+        <div className="record panel">
+          <p className="record-title">{DISPLAY.factsTitle}</p>
+          <ul className="record-list">
+            {facts.map((fact, index) => (
+              <li key={fact.id}>
+                <span className="record-tick" aria-hidden="true">
+                  ✓
+                </span>
+                <span>{fact.statement}</span>
+                <span className="record-n">{String(index + 1).padStart(2, "0")}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {outcome.unresolvedConsequences.length > 0 && (
+          <div className="unresolved">
+            <p className="record-title">仍然没有答案</p>
+            {outcome.unresolvedConsequences.map((item, index) => (
+              <p key={`${index}-${item}`} className="muted">
+                {item}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="row">
         <button className="btn btn-primary" onClick={props.onContinue}>
           {props.continueLabel}

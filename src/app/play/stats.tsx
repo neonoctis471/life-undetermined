@@ -9,7 +9,7 @@ export function GraduationStats() {
     <div className="stats">
       <ul className="stat-list">
         {GRADUATION_STATS.map((stat) => (
-          <li className="stat-card" key={stat.label}>
+          <li className="stat-card panel" key={stat.label}>
             <p className={stat.value ? "stat-value" : "stat-value stat-value-empty"}>{stat.value ?? NO_DATA_TEXT}</p>
             <p className="stat-label">{stat.label}</p>
             <p className="stat-source">

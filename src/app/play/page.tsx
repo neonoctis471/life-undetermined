@@ -34,6 +34,7 @@ import {
   requestUnderstandIntent,
   type Timed,
 } from "./ai-client";
+import { Backdrop } from "./backdrop";
 import { ForkMark } from "./brand";
 import { engineDeps, getGameStore, useGameState } from "./client-store";
 import { ACT_LABELS, DISPLAY } from "./copy";
@@ -466,6 +467,13 @@ export default function PlayPage() {
   const showHero = stage === "CREATED" && heroOpen && understanding.status === "idle";
   // Act 1 lays out four blocks side by side; every other screen keeps the narrow column.
   const wideStage = stage === "CREATED" && !showHero;
+  /*
+   * How much of this life has been printed. Paper starts thin — you can see the
+   * undetermined lines straight through it — and thickens as Facts get written,
+   * until at the end almost nothing shows through. Presentation only: it reads
+   * GameState, never writes it.
+   */
+  const printed = Math.min(1, gameState.facts.length / 12);
 
   // The line field is the player's life; its shape comes from GameState.
   const fieldUi: FieldUi = {
@@ -639,8 +647,9 @@ export default function PlayPage() {
 
   return (
     <>
+      <Backdrop />
       <LineField target={fieldTarget} seed={gameState.gameId} />
-      <div className="shell">
+      <div className="shell" style={{ "--printed": printed.toFixed(3) } as React.CSSProperties}>
         <header className="masthead">
           <div className="brand">
             <ForkMark />

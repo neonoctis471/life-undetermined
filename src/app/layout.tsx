@@ -18,6 +18,21 @@ const display = localFont({
   adjustFontFallback: false,
 });
 
+/**
+ * Noto Serif SC Regular (SIL OFL 1.1), GB2312 level 1 — the narration face for
+ * AI-written prose and quotes. 677KB, so it is never preloaded: the system
+ * serif stack renders first and this swaps in when it arrives.
+ */
+const serif = localFont({
+  src: "./fonts/serif-subset.woff2",
+  variable: "--font-serif-cjk",
+  weight: "400",
+  style: "normal",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+});
+
 export const metadata: Metadata = {
   title: "人生未定式",
   description: "毕业后的五年，你可以走两遍。",
@@ -29,7 +44,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="zh-CN" className={display.variable}>
+    <html lang="zh-CN" className={`${display.variable} ${serif.variable}`}>
       <body>{children}</body>
     </html>
   );
