@@ -163,6 +163,25 @@ a {
   padding: clamp(32px, 7vh, 84px) 0 120px;
 }
 
+.stage-wide {
+  width: min(1040px, 100%);
+}
+
+/* Fades out on the right so the wash meets the line field instead of ending
+   on a hard vertical edge. */
+.stage-wide::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -24px calc(-1 * var(--gutter)) 0 calc(-1 * var(--gutter));
+  background: linear-gradient(
+    90deg,
+    rgba(244, 244, 241, 0.88) 0,
+    rgba(244, 244, 241, 0.86) 70%,
+    rgba(244, 244, 241, 0) 100%
+  );
+}
+
 .colophon {
   display: flex;
   justify-content: space-between;
@@ -347,58 +366,266 @@ a {
   cursor: pointer;
 }
 
-.plan-group {
-  margin: 0 0 22px;
+/* ---------------------------------------------------------------- act 1 */
+
+.act1-block {
+  padding: 22px 0 26px;
+  border-top: 1px solid var(--rule);
 }
 
-.plan-group-title {
-  margin: 0 0 2px;
+.act1-block:first-of-type {
+  border-top: none;
+}
+
+.act1-block-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.act1-block-n {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.18em;
   color: var(--ink-3);
-  text-transform: uppercase;
 }
 
-.plan-grid {
+/* 01 — the boxed grid, and the single row it folds into. */
+
+.plan-box-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 20px;
-  border-top: 1px solid var(--rule);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.chip {
+.plan-box {
   position: relative;
-  padding: 12px 0 12px 20px;
+  min-height: 74px;
+  padding: 22px 26px 12px 12px;
   font-size: 15px;
   text-align: left;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--rule);
   cursor: pointer;
+  transition:
+    border-color 0.2s var(--ease-out),
+    background-color 0.2s var(--ease-out);
 }
 
-.chip::before {
+.plan-box:hover {
+  border-color: var(--rule-strong);
+}
+
+.plan-box-n {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+}
+
+.plan-box::after {
   content: "";
   position: absolute;
-  top: 50%;
-  left: 0;
-  width: 9px;
-  height: 9px;
-  margin-top: -5px;
+  top: 12px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
   border: 1px solid var(--ink-3);
+  border-radius: 50%;
   transition:
     background-color 0.2s,
     border-color 0.2s;
 }
 
-.chip[aria-pressed="true"] {
+.plan-box[aria-pressed="true"] {
   font-weight: 700;
+  background: rgba(255, 255, 255, 0.92);
+  border-color: var(--ink);
 }
 
-.chip[aria-pressed="true"]::before {
+.plan-box[aria-pressed="true"]::after {
   background: var(--green);
   border-color: var(--green);
+}
+
+.plan-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 0;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.plan-summary-more {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+}
+
+/* 02 — value chips. */
+
+.value-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.value-chip {
+  padding: 9px 14px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--rule);
+  cursor: pointer;
+  transition:
+    border-color 0.2s var(--ease-out),
+    background-color 0.2s var(--ease-out);
+}
+
+.value-chip:hover {
+  border-color: var(--rule-strong);
+}
+
+.value-chip[aria-pressed="true"] {
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.92);
+  border-color: var(--ink);
+  box-shadow: inset 3px 0 0 var(--green);
+}
+
+/* 04 — statistics beside the Zhihu panel. */
+
+.act1-split > .stats,
+.act1-split > .experience {
+  min-width: 0;
+}
+
+.act1-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+}
+
+.act1-split > .act1-block-title {
+  grid-column: 1 / -1;
+}
+
+.stat-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.stat-card {
+  border-top: 1px solid var(--rule);
+  padding-top: 10px;
+}
+
+.stat-value {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.stat-value-empty {
+  font-size: 15px;
+  color: var(--ink-3);
+}
+
+.stat-label {
+  margin: 4px 0 6px;
+  font-size: 14px;
+}
+
+.stat-source {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+/* The action bar, shared by both Act 1 screens. */
+
+.act1-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+  padding: 14px 0 18px;
+  background: linear-gradient(180deg, rgba(244, 244, 241, 0) 0, var(--paper) 14px);
+  border-top: 1px solid var(--ink);
+}
+
+.act1-summary {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+/* Confirm screen. */
+
+.confirm-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+  margin: 8px 0 4px;
+}
+
+.confirm-block {
+  padding: 14px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.confirm-block-title {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+
+.confirm-block ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.confirm-block li {
+  padding: 4px 0;
+  font-size: 15px;
+}
+
+.confirm-n {
+  margin-right: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
 }
 
 .field-label {
@@ -773,6 +1000,40 @@ blockquote {
 
   .row .btn {
     flex: 1 1 auto;
+  }
+
+  .stage-wide {
+    width: 100%;
+  }
+
+  .plan-box-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .plan-box {
+    min-height: 64px;
+    padding: 20px 22px 10px 10px;
+    font-size: 14px;
+  }
+
+  .act1-split,
+  .confirm-split,
+  .stat-list {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .act1-summary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .act1-bar .btn {
+    flex: none;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .columns {

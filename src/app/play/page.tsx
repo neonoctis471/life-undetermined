@@ -49,7 +49,7 @@ import {
   ReunionView,
   RewindTransition,
 } from "./late-screens";
-import { draftIntentFromPlans, planQueries } from "./plans";
+import { draftIntentFromPlans, planIntents, planQueries } from "./plans";
 import {
   Hero,
   IntentConfirm,
@@ -214,10 +214,12 @@ export default function PlayPage() {
 
   const submitIntent = async () => {
     const spoken = rawText.trim();
+    // Chips carry a short label but the model gets the full phrase behind it.
+    const intents = planIntents(plans);
     const text =
       spoken ||
-      (plans.length > 0
-        ? `我打算：${plans.join("、")}。${values.length > 0 ? `我比较看重：${values.join("、")}。` : ""}`
+      (intents.length > 0
+        ? `我打算：${intents.join("、")}。${values.length > 0 ? `我比较看重：${values.join("、")}。` : ""}`
         : "");
     if (!text) {
       setNotice("写一句你的打算，或者至少选一个计划。");
@@ -230,7 +232,7 @@ export default function PlayPage() {
     setExperiences({});
     setUnderstanding({ status: "pending" });
     try {
-      const value = await requestUnderstandIntent({ rawText: text, selectedPlans: plans, selectedValues: values });
+      const value = await requestUnderstandIntent({ rawText: text, selectedPlans: intents, selectedValues: values });
       if (session.current !== token) return;
       setUnderstanding({ status: "ready", value });
       // Prefetch DAY_8 while the player reads "我理解的是这样，对吗？".
@@ -462,6 +464,8 @@ export default function PlayPage() {
   const replacement = forkChoice?.gameId === gameState.gameId ? forkChoice.text : null;
   const currentChapter = gameState.situations.at(-1)?.situation.chapter;
   const showHero = stage === "CREATED" && heroOpen && understanding.status === "idle";
+  // Act 1 lays out four blocks side by side; every other screen keeps the narrow column.
+  const wideStage = stage === "CREATED" && !showHero;
 
   // The line field is the player's life; its shape comes from GameState.
   const fieldUi: FieldUi = {
@@ -493,6 +497,7 @@ export default function PlayPage() {
           <IntentConfirm
             understanding={understanding.value}
             prefetchStatus={situations.DAY_8?.status ?? "idle"}
+            playerText={rawText.trim() || null}
             onConfirm={confirmIntent}
             onEdit={editIntent}
           />
@@ -506,7 +511,12 @@ export default function PlayPage() {
             pending={understanding.status === "pending"}
             error={understanding.status === "error" ? understanding.message : null}
             experience={
-              <PlanExperiencePanel experience={planExperience} enabled={plans.length > 0} onLoad={loadPlanExperience} />
+              // "其他" carries no search phrase, so ticking only it must not arm the button.
+              <PlanExperiencePanel
+                experience={planExperience}
+                enabled={planQueries(plans).length > 0}
+                onLoad={loadPlanExperience}
+              />
             }
             onTextChange={setRawText}
             onTogglePlan={(plan) => {
@@ -641,7 +651,7 @@ export default function PlayPage() {
             重新开始
           </button>
         </header>
-        <main className="stage">
+        <main className={wideStage ? "stage stage-wide" : "stage"}>
           {notice && (
             <p className="error" role="alert">
               {notice}

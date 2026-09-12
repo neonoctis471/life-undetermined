@@ -14,7 +14,8 @@ import { describeDecisionAction } from "@/game/labels";
 import type { Timed } from "./ai-client";
 import { DISPLAY } from "./copy";
 import type { Side } from "./field/target";
-import { PLAN_GROUPS, VALUE_OPTIONS } from "./plans";
+import { PLAN_OPTIONS, VALUE_OPTIONS } from "./plans";
+import { GraduationStats } from "./stats";
 
 export type Async<T> =
   | { status: "idle" }
@@ -84,49 +85,83 @@ export function Hero({ onStart }: { onStart(): void }) {
 // Screens 2-3: plan input and AI understanding
 // ---------------------------------------------------------------------------
 
+function Block(props: { n: string; title: string; children: ReactNode; onEnter(): void; className?: string }) {
+  return (
+    <section
+      className={props.className ? `act1-block ${props.className}` : "act1-block"}
+      // Capture so entering a block registers before its own control reacts;
+      // focus covers keyboard tabbing, click covers everything else.
+      onFocusCapture={props.onEnter}
+      onClickCapture={props.onEnter}
+    >
+      <h3 className="act1-block-title">
+        <span className="act1-block-n">{props.n}</span>
+        {props.title}
+      </h3>
+      {props.children}
+    </section>
+  );
+}
+
 export function IntentInput(props: {
   rawText: string;
   plans: string[];
   values: string[];
   pending: boolean;
   error: string | null;
-  /** Real Zhihu experiences for the ticked plans; rendered between chips and free text. */
+  /** Real Zhihu experiences for the ticked plans; sits beside the statistics in block 04. */
   experience?: ReactNode;
   onTextChange(value: string): void;
   onTogglePlan(plan: string): void;
   onToggleValue(value: string): void;
   onSubmit(): void;
 }) {
+  // Attention, not count, drives the collapse: folding on the first pick would
+  // stop the player picking a second one.
+  const [active, setActive] = useState(1);
+  const plansOpen = active === 1 || props.plans.length === 0;
+  const picked = PLAN_OPTIONS.filter((option) => props.plans.includes(option.label));
+  const summary = [...picked.map((option) => option.label), ...props.values].join(" · ");
+
   return (
-    <section className="screen">
+    <section className="screen act1">
       <ScreenHead eyebrow={DISPLAY.eyebrows.prologue} title={DISPLAY.intentTitle} />
-      <p className="lede">可以多选，也可以直接说说自己的打算。</p>
-      {PLAN_GROUPS.map((group) => (
-        <div className="plan-group" key={group.title}>
-          <p className="plan-group-title">{group.title}</p>
-          <div className="plan-grid" role="group" aria-label={group.title}>
-            {group.options.map((option) => (
+      <p className="lede">都可以多选。选得越具体，后面五年就越像你自己的。</p>
+
+      <Block n="01" title="我想做的事" onEnter={() => setActive(1)}>
+        {plansOpen ? (
+          <div className="plan-box-grid" role="group" aria-label="我想做的事">
+            {PLAN_OPTIONS.map((option, index) => (
               <button
                 key={option.label}
-                className="chip"
+                className="plan-box"
+                // The number is decorative; keep it out of the accessible name.
+                aria-label={option.label}
                 aria-pressed={props.plans.includes(option.label)}
                 onClick={() => props.onTogglePlan(option.label)}
                 disabled={props.pending}
               >
-                {option.label}
+                <span className="plan-box-n" aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="plan-box-label">{option.label}</span>
               </button>
             ))}
           </div>
-        </div>
-      ))}
-      {props.experience}
-      <div className="plan-group">
-        <p className="plan-group-title">你最看重的</p>
-        <div className="plan-grid" role="group" aria-label="你最看重的">
+        ) : (
+          <button className="plan-summary" onClick={() => setActive(1)} disabled={props.pending}>
+            <span>{picked.map((option) => option.label).join(" · ")}</span>
+            <span className="plan-summary-more">＋{PLAN_OPTIONS.length - picked.length} 个方向 ⌄</span>
+          </button>
+        )}
+      </Block>
+
+      <Block n="02" title="我真正看重什么" onEnter={() => setActive(2)}>
+        <div className="value-row" role="group" aria-label="我真正看重什么">
           {VALUE_OPTIONS.map((value) => (
             <button
               key={value}
-              className="chip"
+              className="value-chip"
               aria-pressed={props.values.includes(value)}
               onClick={() => props.onToggleValue(value)}
               disabled={props.pending}
@@ -135,21 +170,29 @@ export function IntentInput(props: {
             </button>
           ))}
         </div>
-      </div>
-      <label className="field-label" htmlFor="intent-text">
-        我真正的想法
-      </label>
-      <textarea
-        id="intent-text"
-        value={props.rawText}
-        maxLength={1_000}
-        disabled={props.pending}
-        placeholder="例如：我想先回家帮家里做店里的事情，同时学剪辑试着拍视频。如果几个月还是没什么感觉，我可能会再找工作。"
-        onChange={(event) => props.onTextChange(event.target.value)}
-      />
-      <div className="row">
+      </Block>
+
+      <Block n="03" title="我真正的想法" onEnter={() => setActive(3)}>
+        <textarea
+          id="intent-text"
+          value={props.rawText}
+          maxLength={1_000}
+          disabled={props.pending}
+          placeholder="比如：我准备先回家帮父母开店，同时试试做短视频。如果几个月都没有进展，再考虑去找工作……"
+          aria-label="我真正的想法"
+          onChange={(event) => props.onTextChange(event.target.value)}
+        />
+      </Block>
+
+      <Block n="04" title="看看大家都在选什么" onEnter={() => setActive(4)} className="act1-split">
+        <GraduationStats />
+        {props.experience}
+      </Block>
+
+      <div className="act1-bar">
+        <p className="act1-summary">{summary || "还没有选择"}</p>
         <button className="btn btn-primary" onClick={props.onSubmit} disabled={props.pending}>
-          {props.pending ? "正在理解你的打算…" : "就这样开始"}
+          {props.pending ? "正在理解你的打算…" : "确认，迈出第一步"}
         </button>
       </div>
       {props.error && (
@@ -161,9 +204,28 @@ export function IntentInput(props: {
   );
 }
 
+function ConfirmBlock({ title, items, numbered }: { title: string; items: readonly string[]; numbered?: boolean }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="confirm-block">
+      <p className="confirm-block-title">{title}</p>
+      <ul>
+        {items.map((item, index) => (
+          <li key={`${index}-${item}`}>
+            {numbered && <span className="confirm-n">{String(index + 1).padStart(2, "0")}</span>}
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function IntentConfirm(props: {
   understanding: Timed<UnderstandIntentResponseData>;
   prefetchStatus: Async<unknown>["status"];
+  /** What the player actually typed; null when they only ticked chips. */
+  playerText: string | null;
   onConfirm(): void;
   onEdit(): void;
 }) {
@@ -171,34 +233,28 @@ export function IntentConfirm(props: {
   return (
     <section className="screen">
       <ScreenHead eyebrow={DISPLAY.eyebrows.prologue} title={DISPLAY.confirmTitle} />
-      <GenerationBadge generation={props.understanding.data.generation} elapsedMs={props.understanding.elapsedMs} />
-      <p className="statement">{summary}</p>
-      <dl className="ledger">
+      <div className="confirm-split">
         <div>
-          <dt>想做成的事</dt>
-          <dd>{intent.goals.join("；")}</dd>
+          <p className="confirm-block-title">你的原话</p>
+          <p className="statement">
+            {props.playerText ?? "我还没有把所有想法说清楚，但已经选出了想尝试的方向。"}
+          </p>
+          <p className="lede">{summary}</p>
+          <GenerationBadge generation={props.understanding.data.generation} elapsedMs={props.understanding.elapsedMs} />
         </div>
         <div>
-          <dt>当前最重要的</dt>
-          <dd>{intent.priorities.join("；")}</dd>
+          <ConfirmBlock title="正在并行的计划" items={intent.goals} />
+          <ConfirmBlock title="现在最在意" items={intent.priorities} />
+          <ConfirmBlock title="先做的第一步" items={intent.currentActions} numbered />
+          <ConfirmBlock title="还没有确定" items={intent.constraints} />
         </div>
-        {intent.constraints.length > 0 && (
-          <div>
-            <dt>限制</dt>
-            <dd>{intent.constraints.join("；")}</dd>
-          </div>
-        )}
-        <div>
-          <dt>第一步</dt>
-          <dd>{intent.currentActions.join("；")}</dd>
-        </div>
-      </dl>
-      <div className="row">
+      </div>
+      <div className="act1-bar">
+        <button className="btn" onClick={props.onEdit}>
+          ← 返回修改
+        </button>
         <button className="btn btn-primary" onClick={props.onConfirm}>
           对，就是这样
-        </button>
-        <button className="btn" onClick={props.onEdit}>
-          我想改一下
         </button>
       </div>
       <p className="meta">
