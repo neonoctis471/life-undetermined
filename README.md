@@ -8,7 +8,7 @@
 
 ### ▶ [indeterminate.eilnoctis.com](https://indeterminate.eilnoctis.com)
 
-单局约 8–10 分钟 · 手机可玩 · 无需注册登录
+单局约 8–10 分钟 · 手机可玩 · 用知乎账号登录后开始
 
 2026 知乎黑客松 · 游戏赛道参赛作品
 
