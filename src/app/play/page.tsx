@@ -37,8 +37,9 @@ import {
   type Timed,
 } from "./ai-client";
 import { ForkMark } from "./brand";
+import { GithubMark } from "./glyphs";
 import { engineDeps, getGameStore, useGameState } from "./client-store";
-import { DISPLAY } from "./copy";
+import { DISPLAY, REPO_URL } from "./copy";
 import { ExperiencePanel, PlanExperiencePanel } from "./experience-cards";
 import type { Side } from "./field/target";
 import { JourneyTrack, StageFocus } from "./journey";
@@ -653,7 +654,14 @@ export default function PlayPage() {
             <span className="wordmark">{DISPLAY.wordmark}</span>
           </div>
           <p className="masthead-note">LIFE, UNDETERMINED<span>一场关于选择的人生模拟</span></p>
-          {showHero ? <span className="masthead-index">00 / 05</span> : <button className="text-button" onClick={reset}>重新开始 <span aria-hidden="true">↺</span></button>}
+          <div className="masthead-right">
+            {/* In the masthead rather than the hero, so the source stays one tap away from every screen. */}
+            <a className="gh-link" href={REPO_URL} target="_blank" rel="noopener noreferrer" aria-label="在 GitHub 上查看源码">
+              <GithubMark />
+              <span className="gh-label">GitHub</span>
+            </a>
+            {showHero ? <span className="masthead-index">00 / 05</span> : <button className="text-button" onClick={reset}>重新开始 <span aria-hidden="true">↺</span></button>}
+          </div>
         </header>
         <main className={wideStage ? "stage stage-wide" : "stage"} id="main-content">
           {notice && (

@@ -5,6 +5,9 @@
  * font: its glyphs cannot be enumerated in advance.
  */
 
+/** Public source for the work; shown in the masthead so a reader can check it. */
+export const REPO_URL = "https://github.com/neonoctis471/life-undetermined";
+
 export const DISPLAY = {
   wordmark: "人生未定式",
   heroTitle: ["人生", "未定式"],
