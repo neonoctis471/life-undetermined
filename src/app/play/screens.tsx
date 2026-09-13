@@ -71,7 +71,10 @@ export function Hero({ onStart }: { onStart(): void }) {
           <span>{DISPLAY.heroTitle[0]}<i aria-hidden="true">↗</i></span>
           <span>{DISPLAY.heroTitle[1]}</span>
         </h1>
-        <p className="hero-subtitle">毕业后的五年，<br />你可以走<span>两遍。</span></p>
+        <p className="hero-subtitle hero-pitch">
+          把<em>知乎网友真实走过</em>的人生经验，<br />
+          变成你可以亲自验证、对照和讨论的<span>平行人生。</span>
+        </p>
         <div className="hero-action">
           <button className="btn btn-primary" onClick={onStart}>{DISPLAY.start}<span aria-hidden="true">↗</span></button>
           <span className="hero-duration">约 8–10 分钟</span>

@@ -63,6 +63,11 @@ h1:focus, h2:focus { outline: none; }
 .hero-title > span:last-child::after { content: ""; position: absolute; left: 0; right: -4%; top: 66%; height: 2px; opacity: .85; background: var(--paper); transform: rotate(-2deg); pointer-events: none; }
 .hero-subtitle { margin: 0; font-size: clamp(20px, 2vw, 28px); font-weight: 600; line-height: 1.6; letter-spacing: .035em; }
 .hero-subtitle span { color: var(--blue); border-bottom: 3px solid var(--blue); }
+/* The pitch line carries the whole positioning, so it runs longer than a
+   headline: step the size down and let it breathe over two lines. */
+.hero-pitch { font-size: clamp(17px, 1.5vw, 22px); line-height: 1.8; letter-spacing: .02em; }
+.hero-pitch em { font-style: normal; font-weight: 800; color: var(--blue); }
+.hero-pitch span { white-space: nowrap; }
 .hero-action { display: flex; align-items: center; gap: 22px; margin-top: 31px; }
 .hero-action .btn { display: flex; justify-content: space-between; align-items: center; gap: 52px; min-height: 60px; padding: 12px 24px; font-size: 17px; }
 .hero-action .btn > span { font-family: Arial, sans-serif; font-size: 30px; font-weight: 500; line-height: 1; transition: transform .25s var(--ease-out); }
@@ -291,6 +296,7 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
   .hero-title { font-size: 12vw; margin-left: -3px; margin-bottom: 25px; }
   .hero-title i { margin-left: 14px; }
   .hero-subtitle { font-size: 17px; letter-spacing: 0; }
+  .hero-pitch { font-size: 15px; line-height: 1.75; letter-spacing: 0; }
   .hero-artwork { margin-top: 56px; margin-right: 1px; aspect-ratio: .65; }
   .art-emblem { inset: 19% 0 auto; }
   .art-caption { left: -10px; right: -6px; bottom: 15px; padding: 9px 10px; font-size: 13px; }
@@ -378,6 +384,10 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
   .art-caption b { display: none; }
   .art-offset { bottom: 14px; }
   .hero-subtitle { position: relative; z-index: 3; max-width: 200px; margin-top: 5px; font-size: 18px; }
+  /* The pitch is the page's positioning statement, so on a phone it takes the
+     full width and the artwork stacks under it instead of squeezing it. */
+  .hero-pitch { max-width: none; font-size: 15px; line-height: 1.7; }
+  .hero:has(.hero-pitch) .hero-artwork { position: static; width: 156px; margin: 22px 0 0 auto; top: auto; right: auto; }
   .hero-action { position: relative; z-index: 3; margin-top: 28px; }
   .hero-action .btn { font-size: 14px; gap: 26px; }
   .hero-footnote { margin-top: 23px; }

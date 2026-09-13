@@ -8,7 +8,8 @@
 export const DISPLAY = {
   wordmark: "人生未定式",
   heroTitle: ["人生", "未定式"],
-  heroSubtitle: "毕业后的五年，你可以走两遍。",
+  // The hero renders this with its own line break and emphasis markup.
+  heroSubtitle: "把知乎网友真实走过的人生经验，变成你可以亲自验证、对照和讨论的平行人生。",
   start: "开始我的五年",
   intentTitle: "毕业了，你准备怎样开始？",
   confirmTitle: "我理解的是这样，对吗？",
