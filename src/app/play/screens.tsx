@@ -13,6 +13,7 @@ import { REFLECTION_LABELS, describeDecisionAction } from "@/game/labels";
 
 import type { Timed } from "./ai-client";
 import { DISPLAY } from "./copy";
+import { HeroArtwork } from "./journey";
 import type { Side } from "./field/target";
 import { PLAN_OPTIONS, VALUE_OPTIONS } from "./plans";
 import { GraduationStats } from "./stats";
@@ -47,13 +48,12 @@ export function Chevron() {
   );
 }
 
-export function GenerationBadge({ generation, elapsedMs }: { generation: "AI" | "FALLBACK"; elapsedMs?: number }) {
+export function GenerationBadge({ generation }: { generation: "AI" | "FALLBACK"; elapsedMs?: number }) {
   return (
     <p className="meta">
       <span className={generation === "AI" ? "tag" : "tag tag-fallback"}>
         {generation === "AI" ? "AI 生成" : "保守模板（AI 暂不可用）"}
       </span>
-      {elapsedMs !== undefined && `耗时 ${(elapsedMs / 1000).toFixed(1)}s`}
     </p>
   );
 }
@@ -65,18 +65,20 @@ export function GenerationBadge({ generation, elapsedMs }: { generation: "AI" | 
 export function Hero({ onStart }: { onStart(): void }) {
   return (
     <section className="screen hero" aria-labelledby="hero-title">
-      <p className="eyebrow">{DISPLAY.eyebrows.prologue}</p>
-      <h1 id="hero-title" className="hero-title">
-        <span>{DISPLAY.heroTitle[0]}</span>
-        <span>{DISPLAY.heroTitle[1]}</span>
-      </h1>
-      <p className="hero-subtitle">{DISPLAY.heroSubtitle}</p>
-      <p className="lede">毕业以后的人生没有标准答案。背后这些线，每一条都是一种还没有发生的可能。</p>
-      <div className="row">
-        <button className="btn btn-primary" onClick={onStart}>
-          {DISPLAY.start}
-        </button>
+      <div className="hero-copy">
+        <p className="eyebrow"><span className="chapter-chip">00</span>{DISPLAY.eyebrows.prologue}</p>
+        <h1 id="hero-title" className="hero-title">
+          <span>{DISPLAY.heroTitle[0]}<i aria-hidden="true">↗</i></span>
+          <span>{DISPLAY.heroTitle[1]}</span>
+        </h1>
+        <p className="hero-subtitle">毕业后的五年，<br />你可以走<span>两遍。</span></p>
+        <div className="hero-action">
+          <button className="btn btn-primary" onClick={onStart}>{DISPLAY.start}<span aria-hidden="true">↗</span></button>
+          <span className="hero-duration">约 8–10 分钟</span>
+        </div>
       </div>
+      <HeroArtwork />
+      <div className="hero-footnote"><span>人生没有标准答案。</span><span>从毕业那天，走向另一种可能。<span aria-hidden="true">↗</span></span></div>
     </section>
   );
 }
@@ -260,10 +262,6 @@ export function IntentConfirm(props: {
           对，就是这样
         </button>
       </div>
-      <p className="meta">
-        第 8 天的生活：
-        {props.prefetchStatus === "pending" ? "正在后台准备…" : props.prefetchStatus === "ready" ? "已准备好" : "确认后开始准备"}
-      </p>
     </section>
   );
 }
@@ -278,14 +276,16 @@ export interface TimeStep {
 }
 
 /** Years (or a rewind) moving past, used as a meaningful wait instead of a spinner. */
-export function TimeAdvance({ steps, caption }: { steps: TimeStep[]; caption: string }) {
+export function TimeAdvance({ steps, caption, duration = 5 }: { steps: TimeStep[]; caption: string; duration?: number }) {
+  const beats = steps.reduce((count, step) => count + step.lines.length + 1, 0);
+  const cadence = Math.max(0.16, (duration - 0.8) / Math.max(1, beats));
   const starts = steps.reduce<number[]>((acc, _step, index) => {
-    acc.push(index === 0 ? 0 : acc[index - 1]! + 1.4 + steps[index - 1]!.lines.length * 0.9);
+    acc.push(index === 0 ? 0 : acc[index - 1]! + (steps[index - 1]!.lines.length + 1) * cadence);
     return acc;
   }, []);
-  const end = steps.length > 0 ? starts.at(-1)! + 1.4 + steps.at(-1)!.lines.length * 0.9 : 0;
+  const end = beats * cadence;
   return (
-    <div className="card">
+    <div className="card time-sequence">
       <p className="meta">{caption}</p>
       <div className="timeline">
         {steps.map((step, index) => (
@@ -294,7 +294,7 @@ export function TimeAdvance({ steps, caption }: { steps: TimeStep[]; caption: st
               {step.label}
             </p>
             {step.lines.map((line, lineIndex) => (
-              <p key={`${lineIndex}-${line}`} className="beat" style={delay(starts[index]! + 0.9 * (lineIndex + 1))}>
+              <p key={`${lineIndex}-${line}`} className="beat" style={delay(starts[index]! + cadence * (lineIndex + 1))}>
                 {line}
               </p>
             ))}
@@ -356,6 +356,11 @@ export function Possibilities(props: {
   onHover(side: Side): void;
 }) {
   const { slot } = props;
+  const [branch, setBranch] = useState<Side>(0);
+  const onHover = (side: Side) => {
+    setBranch(side);
+    props.onHover(side);
+  };
   return (
     <section className="screen">
       <ScreenHead eyebrow={DISPLAY.eyebrows[props.chapter]} title={DISPLAY.chapterTitles[props.chapter]} />
@@ -387,7 +392,15 @@ export function Possibilities(props: {
             onHover; the cards only had to get big enough for it to be felt.
             Left undocumented on purpose: it is there to be found.
           */}
-          <div className="pair">
+          <div className="choice-junction" data-branch={branch} aria-hidden="true">
+            <svg viewBox="0 0 1000 100" fill="none" preserveAspectRatio="none">
+              <path className="junction-base" d="M500 0V30L250 80V100M500 30L750 80V100" />
+              <path className="junction-left" pathLength="1" d="M500 0V30L250 80V100" />
+              <path className="junction-right" pathLength="1" d="M500 0V30L750 80V100" />
+              <rect x="494" y="24" width="12" height="12" fill="currentColor" transform="rotate(45 500 30)" />
+            </svg>
+          </div>
+          <div className="pair" data-branch={branch}>
             {slot.value.data.result.possibilities.map((possibility, index) => {
               const side: Side = possibility.kind === "MOMENTUM" ? 1 : -1;
               return (
@@ -396,10 +409,10 @@ export function Possibilities(props: {
                   className="pair-card panel panel-lift"
                   // Without this the accessible name is the whole card blob.
                   aria-label={DISPLAY.possibilityTitles[possibility.kind]}
-                  onPointerEnter={() => props.onHover(side)}
-                  onPointerLeave={() => props.onHover(0)}
-                  onFocus={() => props.onHover(side)}
-                  onBlur={() => props.onHover(0)}
+                  onPointerEnter={() => onHover(side)}
+                  onPointerLeave={() => onHover(0)}
+                  onFocus={() => onHover(side)}
+                  onBlur={() => onHover(0)}
                   onClick={() => props.onChoose(possibility.kind)}
                 >
                   <span className="pair-top">
@@ -444,7 +457,7 @@ export function SituationView(props: {
     <section className="screen">
       <ScreenHead eyebrow={eyebrow} title={title} />
       <p className="scene">{situation.concreteContext}</p>
-      <p className="meta">此刻的张力：{situation.tensions.join(" / ")}</p>
+      <p className="meta">此刻面对的：{situation.tensions.join(" / ")}</p>
       {situation.externalConditions.length > 0 && (
         <p className="meta">外部条件：{situation.externalConditions.join(" / ")}</p>
       )}

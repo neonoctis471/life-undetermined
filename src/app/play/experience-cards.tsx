@@ -35,7 +35,7 @@ function ZhihuExperience({ card, index }: { card: ZhihuCard; index: number }) {
 function SupplementExperience({ card }: { card: SupplementCard }) {
   return (
     <article className="card" data-provenance={card.provenance}>
-      <p className="muted">{card.label}</p>
+      <p className="muted">AI 参考思路 · 非知乎内容</p>
       <ul>
         {card.points.map((point, index) => (
           <li key={`${index}-${point}`}>{point}</li>
@@ -66,10 +66,10 @@ export function PlanExperiencePanel(props: { experience?: Async<ExperienceRespon
   return (
     <div className="experience experience-plan">
       {cards.length > 0 ? (
-        <p className="plan-lookup-title">💬 知乎朋友们怎么推荐毕业后的选择</p>
+        <p className="plan-lookup-title">知乎朋友们怎么推荐毕业后的选择</p>
       ) : (
         <button className="link-button" disabled={status === "pending"} onClick={props.onLoad}>
-          💬 看看知乎朋友们怎么推荐毕业后的选择
+          看看知乎朋友们怎么推荐毕业后的选择 ↗
         </button>
       )}
       {status === "pending" && <p className="muted">正在知乎上找过来人的建议……</p>}
@@ -89,7 +89,7 @@ export function ExperiencePanel({ experience }: { experience?: Async<ExperienceR
   return (
     <div className="experience">
       <button className="link-button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        💬 {supplementOnly ? "看看几个参考思路。" : "看看知乎朋友们是怎么选择的"}
+        {supplementOnly ? "看看几个参考思路" : "看看知乎朋友们是怎么选择的"} {open ? "−" : "＋"}
       </button>
       {open &&
         (experience.status === "pending" ? (

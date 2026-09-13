@@ -36,10 +36,11 @@ const serif = localFont({
 export const metadata: Metadata = {
   title: "人生未定式",
   description: "毕业后的五年，你可以走两遍。",
+  icons: { icon: "/brand/icon.png", apple: "/brand/icon.png" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f4f4f1",
+  themeColor: "#0b4bc4",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

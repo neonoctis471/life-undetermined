@@ -34,13 +34,12 @@ import {
   requestUnderstandIntent,
   type Timed,
 } from "./ai-client";
-import { Backdrop } from "./backdrop";
 import { ForkMark } from "./brand";
 import { engineDeps, getGameStore, useGameState } from "./client-store";
-import { ACT_LABELS, DISPLAY } from "./copy";
+import { DISPLAY } from "./copy";
 import { ExperiencePanel, PlanExperiencePanel } from "./experience-cards";
-import { LineField } from "./field/LineField";
-import { deriveFieldTarget, type FieldUi, type Side } from "./field/target";
+import type { Side } from "./field/target";
+import { JourneyTrack, StageFocus } from "./journey";
 import { loadForkChoice, saveForkChoice, type ForkChoice } from "./fork-choice";
 import {
   ComparisonView,
@@ -464,24 +463,8 @@ export default function PlayPage() {
   const replacement = forkChoice?.gameId === gameState.gameId ? forkChoice.text : null;
   const currentChapter = gameState.situations.at(-1)?.situation.chapter;
   const showHero = stage === "CREATED" && heroOpen && understanding.status === "idle";
-  // Act 1 lays out four blocks side by side; every other screen keeps the narrow column.
   const wideStage = stage === "CREATED" && !showHero;
-  /*
-   * How much of this life has been printed. Paper starts thin — you can see the
-   * undetermined lines straight through it — and thickens as Facts get written,
-   * until at the end almost nothing shows through. Presentation only: it reads
-   * GameState, never writes it.
-   */
-  const printed = Math.min(1, gameState.facts.length / 12);
-
-  // The line field is the player's life; its shape comes from GameState.
-  const fieldUi: FieldUi = {
-    heroOpen: showHero,
-    understood: understanding.status === "ready",
-    viewingNextChapter: showPossibilities,
-    possibilitiesReady: nextSlot?.status === "ready",
-    hovered,
-    wait:
+  const waitingFor =
       understanding.status === "pending"
         ? "understanding"
         : stage === "DECISION_RECORDED" && outcome.status === "pending"
@@ -492,9 +475,9 @@ export default function PlayPage() {
               ? "rewind"
               : nextSlot?.status === "pending" && (stage === "INTENT_CONFIRMED" || showPossibilities)
                 ? "situation"
-                : "none",
-  };
-  const fieldTarget = deriveFieldTarget(gameState, fieldUi);
+                : "none";
+  const currentAct = Math.min(actIndex(gameState, showPossibilities), 5);
+  const viewKey = `${stage}-${showHero}-${understanding.status === "ready"}-${showPossibilities}-${accelerating}-${forkPicking}-${parallel.status === "pending"}`;
 
   let body: React.ReactNode;
   switch (stage) {
@@ -639,20 +622,18 @@ export default function PlayPage() {
 
   return (
     <>
-      <Backdrop />
-      <LineField target={fieldTarget} seed={gameState.gameId} />
-      <div className="shell" style={{ "--printed": printed.toFixed(3) } as React.CSSProperties}>
+      <div className="side-band" aria-hidden="true"><span>人生未定式</span><span>人生未定式</span><span>人生未定式</span></div>
+      <div className="shell" data-hero={showHero} data-act={currentAct} data-wait={waitingFor}>
+        <StageFocus view={viewKey} />
         <header className="masthead">
           <div className="brand">
             <ForkMark />
             <span className="wordmark">{DISPLAY.wordmark}</span>
           </div>
-          <p className="masthead-note">Life, undetermined</p>
-          <button className="text-button" onClick={reset}>
-            重新开始
-          </button>
+          <p className="masthead-note">LIFE, UNDETERMINED<span>一场关于选择的人生模拟</span></p>
+          {showHero ? <span className="masthead-index">00 / 05</span> : <button className="text-button" onClick={reset}>重新开始 <span aria-hidden="true">↺</span></button>}
         </header>
-        <main className={wideStage ? "stage stage-wide" : "stage"}>
+        <main className={wideStage ? "stage stage-wide" : "stage"} id="main-content">
           {notice && (
             <p className="error" role="alert">
               {notice}
@@ -661,8 +642,7 @@ export default function PlayPage() {
           {body}
         </main>
         <footer className="colophon">
-          <span>{ACT_LABELS[Math.min(actIndex(gameState, showPossibilities), ACT_LABELS.length - 1)]}</span>
-          <span>每一个选择，都会留下一条线</span>
+          <JourneyTrack current={currentAct} hovered={hovered} waiting={waitingFor !== "none"} />
         </footer>
       </div>
     </>

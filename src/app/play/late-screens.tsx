@@ -8,6 +8,7 @@ import { keyDecisionContext } from "@/game/flow";
 import { describeDecisionAction } from "@/game/labels";
 
 import { DISPLAY } from "./copy";
+import { ForkMark } from "./brand";
 import { GenerationBadge, ScreenHead, TimeAdvance, type TimeStep } from "./screens";
 
 type Badge = { generation: "AI" | "FALLBACK"; elapsedMs?: number };
@@ -173,7 +174,7 @@ export function RewindTransition({ state, replacement }: { state: GameState; rep
   return (
     <section className="screen" aria-live="polite">
       <ScreenHead eyebrow={DISPLAY.eyebrows.fork} title={DISPLAY.rewindTitle} />
-      <TimeAdvance steps={steps} caption="时间倒回去……" />
+      <TimeAdvance steps={steps} caption="时间倒回去……" duration={7} />
     </section>
   );
 }
@@ -181,6 +182,7 @@ export function RewindTransition({ state, replacement }: { state: GameState; rep
 // Screen 14: two lives side by side ---------------------------------------------
 
 export function ComparisonView(props: { state: GameState; replacement: string | null; badge?: Badge; onFinish(): void }) {
+  const [activeLife, setActiveLife] = useState(0);
   const { fiveYearLife: original, parallelLife: parallel, comparison } = props.state;
   const key = keyDecisionContext(props.state);
   if (!original || !parallel || !comparison) return null;
@@ -193,14 +195,36 @@ export function ComparisonView(props: { state: GameState; replacement: string | 
     <section className="screen">
       <ScreenHead eyebrow={DISPLAY.eyebrows.comparison} title={DISPLAY.comparisonTitle} />
       {props.badge && <GenerationBadge generation={props.badge.generation} elapsedMs={props.badge.elapsedMs} />}
-      <div className="columns">
-        <div>
+      <div className="comparison-tabs" role="tablist" aria-label="选择要查看的人生">
+        {["原来的五年", "另一种可能"].map((label, index) => (
+          <button
+            key={label}
+            id={`life-tab-${index}`}
+            role="tab"
+            aria-selected={activeLife === index}
+            aria-controls={`life-panel-${index}`}
+            tabIndex={activeLife === index ? 0 : -1}
+            onClick={() => setActiveLife(index)}
+            onKeyDown={(event) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              event.preventDefault();
+              const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : 1 - activeLife;
+              setActiveLife(next);
+              event.currentTarget.parentElement?.querySelectorAll("button")[next]?.focus();
+            }}
+          >
+            <span aria-hidden="true">0{index + 1}</span>{label}
+          </button>
+        ))}
+      </div>
+      <div className="columns comparison-columns">
+        <div id="life-panel-0" role="tabpanel" aria-labelledby="life-tab-0" data-active={activeLife === 0}>
           <p className="meta">原来的五年</p>
           <p className="echo">「{key?.label}」</p>
           <LifeTimeline life={original} />
           <p>{original.currentState}</p>
         </div>
-        <div>
+        <div id="life-panel-1" role="tabpanel" aria-labelledby="life-tab-1" data-active={activeLife === 1}>
           <p className="meta">另一种可能</p>
           <p className="echo">「{props.replacement ?? "另一种选择"}」</p>
           <LifeTimeline life={parallel} />
@@ -237,7 +261,8 @@ export function ComparisonView(props: { state: GameState; replacement: string | 
 
 export function EndingView({ onRestart }: { onRestart(): void }) {
   return (
-    <section className="screen">
+    <section className="screen ending">
+      <ForkMark size={88} />
       <p className="eyebrow">{DISPLAY.eyebrows.comparison}</p>
       <h2 className="display-title">{DISPLAY.endingTitle}</h2>
       <p className="lede">但走过两条路以后，你也许更清楚自己真正愿意承担什么，又真正舍不得什么。</p>
