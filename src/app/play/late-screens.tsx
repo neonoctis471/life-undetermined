@@ -282,7 +282,7 @@ export function EndingView({ onRestart }: { onRestart(): void }) {
           重新开始
         </button>
       </div>
-      <ZhihuSignIn placement="ending" />
+      <ZhihuSignIn />
     </section>
   );
 }

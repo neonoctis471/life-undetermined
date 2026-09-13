@@ -17,7 +17,7 @@ import { HeroArtwork } from "./journey";
 import type { Side } from "./field/target";
 import { PLAN_OPTIONS, VALUE_OPTIONS } from "./plans";
 import { GraduationStats } from "./stats";
-import { ZhihuSignIn } from "./zhihu-signin";
+import { ZhihuGate } from "./zhihu-signin";
 
 export type Async<T> =
   | { status: "idle" }
@@ -76,11 +76,7 @@ export function Hero({ onStart }: { onStart(): void }) {
           把<em>知乎网友真实走过</em>的人生经验，<br />
           变成你可以亲自验证、对照和讨论的<span>平行人生。</span>
         </p>
-        <div className="hero-action">
-          <button className="btn btn-primary" onClick={onStart}>{DISPLAY.start}<span aria-hidden="true">↗</span></button>
-          <span className="hero-duration">约 8–10 分钟</span>
-        </div>
-        <ZhihuSignIn />
+        <ZhihuGate onStart={onStart} startLabel={DISPLAY.start} />
       </div>
       <HeroArtwork />
       <div className="hero-footnote"><span>人生没有标准答案。</span><span>从毕业那天，走向另一种可能。<span aria-hidden="true">↗</span></span></div>
