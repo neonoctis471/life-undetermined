@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ExperienceResponseData, SupplementCard, ZhihuCard } from "@/zhihu/contracts";
 
@@ -56,25 +56,37 @@ function Cards({ cards }: { cards: ExperienceResponseData["cards"] }) {
 }
 
 /**
- * Act 1 version: advice on how to choose after graduating, asked for rather
- * than prefetched. Unlike the in-Situation panel this one stays visible after a
- * miss — they clicked, so they get an answer either way.
+ * Act 1 version: advice on how to choose after graduating. Real answers from
+ * people who have been through it are the point of this block, so the lookup
+ * runs on arrival instead of hiding behind a click a first-time visitor may
+ * never make. The button is kept only as a way back from a miss.
  */
 export function PlanExperiencePanel(props: { experience?: Async<ExperienceResponseData>; onLoad(): void }) {
   const status = props.experience?.status ?? "idle";
   const cards = props.experience?.status === "ready" ? props.experience.value.cards : [];
+  const { onLoad } = props;
+  /*
+   * onLoad is redefined on every render of the page, so the effect cannot rely
+   * on its identity to stay put; the ref is what makes this fire exactly once.
+   * Starting a new game unmounts the prologue, which resets it.
+   */
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current || status !== "idle") return;
+    asked.current = true;
+    onLoad();
+  }, [status, onLoad]);
+
+  const missed = status === "error" || (status === "ready" && cards.length === 0);
   return (
     <div className="experience experience-plan">
-      {cards.length > 0 ? (
-        <p className="plan-lookup-title">知乎朋友们怎么推荐毕业后的选择</p>
-      ) : (
-        <button className="link-button" disabled={status === "pending"} onClick={props.onLoad}>
-          看看知乎朋友们怎么推荐毕业后的选择 ↗
+      {/* The "05 看看知乎朋友们怎么推荐" block heading already names this. */}
+      {status === "pending" && <p className="muted">正在知乎上找过来人的建议……</p>}
+      {missed && (
+        <button className="link-button" onClick={onLoad}>
+          {status === "error" ? "这次没能找到，重试" : "这次没找到合适的回答，重试"} ↻
         </button>
       )}
-      {status === "pending" && <p className="muted">正在知乎上找过来人的建议……</p>}
-      {status === "error" && <p className="muted">这次没能找到，先按你自己的想法写吧。</p>}
-      {status === "ready" && cards.length === 0 && <p className="muted">这次没找到合适的回答。</p>}
       <Cards cards={cards} />
     </div>
   );

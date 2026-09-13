@@ -444,6 +444,8 @@ export default function PlayPage() {
     setUnderstanding(IDLE);
     setSituations({});
     setExperiences({});
+    // Without this the next game opens showing the previous game's Zhihu advice.
+    setPlanExperience(IDLE);
     setOutcome(IDLE);
     setShowPossibilities(false);
     setFiveYears(IDLE);
