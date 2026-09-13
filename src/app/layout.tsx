@@ -35,7 +35,8 @@ const serif = localFont({
 
 export const metadata: Metadata = {
   title: "人生未定式",
-  description: "毕业后的五年，你可以走两遍。",
+  // Matches the hero pitch: this is what a shared link previews as.
+  description: "把知乎网友真实走过的人生经验，变成你可以亲自验证、对照和讨论的平行人生。毕业后的五年，你可以走两遍。",
   icons: { icon: "/brand/icon.png", apple: "/brand/icon.png" },
 };
 
