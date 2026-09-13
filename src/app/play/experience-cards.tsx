@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import type { ExperienceResponseData, SupplementCard, ZhihuCard } from "@/zhihu/contracts";
@@ -8,13 +9,52 @@ import type { Async } from "./screens";
 
 // Plain structure only; visual design for the cards comes in a later pass.
 
+/*
+ * The author is the point of these cards: a card without a face and a name is
+ * indistinguishable from something the machine made up. The initial stands in
+ * when the search result carried no avatar, or when the image fails to load —
+ * a broken-image icon next to someone's name would say the opposite of what
+ * this block is for.
+ */
+function AuthorAvatar({ card }: { card: ZhihuCard }) {
+  const [broken, setBroken] = useState(false);
+  if (!card.authorAvatar || broken) {
+    return (
+      <span className="card-avatar is-blank" aria-hidden="true">
+        {[...card.authorName][0] ?? "知"}
+      </span>
+    );
+  }
+  return (
+    <Image
+      className="card-avatar"
+      src={card.authorAvatar}
+      alt=""
+      width={36}
+      height={36}
+      unoptimized
+      onError={() => setBroken(true)}
+    />
+  );
+}
+
 function ZhihuExperience({ card, index }: { card: ZhihuCard; index: number }) {
   const kind = card.contentType === "Article" ? "文章" : "回答";
   return (
     <article className="card" data-provenance={card.provenance}>
-      <p className="muted">
-        经验 {String(index + 1).padStart(2, "0")} · 来自知乎 · {card.authorName} 的{kind}
-      </p>
+      <div className="card-author">
+        <AuthorAvatar card={card} />
+        <span className="card-author-lines">
+          <span className="card-author-name">
+            <b>{card.authorName}</b>
+            {/* Zhihu's own verification, shown as Zhihu words it. */}
+            {card.authorBadge && <em className="card-badge">{card.authorBadge}</em>}
+          </span>
+          <span className="muted">
+            经验 {String(index + 1).padStart(2, "0")} · 来自知乎的{kind}
+          </span>
+        </span>
+      </div>
       <h4>{card.title}</h4>
       {card.conditions.length > 0 && <p>当时条件：{card.conditions.join("；")}</p>}
       {card.whatTheyDid && <p>作者做了什么：{card.whatTheyDid}</p>}

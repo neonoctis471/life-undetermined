@@ -20,11 +20,15 @@ function evidence(overrides: Partial<ZhihuEvidence> = {}): ZhihuEvidence {
     id: "1",
     title: "要不要回家接手父母生意?",
     authorName: "作者甲",
+    authorAvatar: "https://picx.zhimg.com/50/v2-abc_l.jpg",
+    authorBadge: null,
     url: "https://www.zhihu.com/question/1/answer/2?utm_source=x",
     contentType: "Answer",
     text: body,
     voteUpCount: 0,
+    commentCount: 0,
     authorityLevel: 3,
+    rankingScore: 1,
     ...overrides,
   };
 }
@@ -37,6 +41,43 @@ describe("toEvidence", () => {
     expect(
       toEvidence({ Title: "要不要回家? - 知乎", Url: "https://zhuanlan.zhihu.com/p/1", AuthorName: "甲", ContentText: " 正文 ", AuthorityLevel: "4", VoteUpCount: 7, ContentID: 9 }),
     ).toMatchObject({ title: "要不要回家?", authorityLevel: 4, voteUpCount: 7, text: "正文", id: "9" });
+  });
+
+  it("carries the author's avatar and Zhihu's own badge line", () => {
+    expect(
+      toEvidence({
+        Title: "t - 知乎",
+        Url: "https://www.zhihu.com/question/1/answer/2",
+        AuthorName: "甲",
+        ContentText: "正文",
+        AuthorAvatar: "https://picx.zhimg.com/50/v2-abc_l.jpg?source=x",
+        AuthorBadgeText: " 银行话题下的\n优秀答主 ",
+        CommentCount: "12",
+        RankingScore: 1.75,
+      }),
+    ).toMatchObject({
+      authorAvatar: "https://picx.zhimg.com/50/v2-abc_l.jpg?source=x",
+      authorBadge: "银行话题下的 优秀答主",
+      commentCount: 12,
+      rankingScore: 1.75,
+    });
+  });
+
+  it.each([
+    "http://picx.zhimg.com/50/a.jpg",
+    "https://zhimg.com.evil.example/a.jpg",
+    "https://evil.example/a.jpg",
+    "javascript:alert(1)",
+  ])("refuses to render an avatar from anywhere but Zhihu (%s)", (AuthorAvatar) => {
+    expect(
+      toEvidence({ Title: "t", Url: "https://www.zhihu.com/q/1", AuthorName: "甲", ContentText: "正文", AuthorAvatar }),
+    ).toMatchObject({ authorAvatar: null });
+  });
+
+  it("treats an empty badge as unbadged rather than as an empty label", () => {
+    expect(
+      toEvidence({ Title: "t", Url: "https://www.zhihu.com/q/1", AuthorName: "甲", ContentText: "正文", AuthorBadgeText: "   " }),
+    ).toMatchObject({ authorBadge: null });
   });
 
   it.each(["http://www.zhihu.com/q/1", "https://evil.example/zhihu.com", "https://zhihu.com.evil.example/x", "javascript:alert(1)"])(
@@ -53,20 +94,71 @@ describe("deterministic filtering and ranking", () => {
     expect(intentKeywords({ ...intent, rawText: "学吉他", goals: ["学吉他"], currentActions: ["报班"] })).toEqual(["学吉", "吉他", "报班"]);
   });
 
-  it("drops short, off-topic and duplicate items, then sorts by authority and votes", () => {
+  it("drops short, off-topic and duplicate items, then ranks on quality", () => {
     const selected = selectEvidence(
       [
         evidence({ id: "short", text: "回家帮忙".repeat(10) }),
         evidence({ id: "off-topic", title: "如何挑选跑鞋", text: "跑步时鞋子的缓震很重要。".repeat(10), url: "https://www.zhihu.com/q/9" }),
-        evidence({ id: "low", title: "问题 A", url: "https://www.zhihu.com/q/a", authorityLevel: 2, voteUpCount: 99 }),
-        evidence({ id: "high-votes", title: "问题 B", url: "https://www.zhihu.com/q/b", authorityLevel: 3, voteUpCount: 20 }),
+        evidence({ id: "well-liked", title: "问题 A", url: "https://www.zhihu.com/q/a", authorityLevel: 2, voteUpCount: 99 }),
+        evidence({ id: "liked", title: "问题 B", url: "https://www.zhihu.com/q/b", authorityLevel: 3, voteUpCount: 20 }),
         evidence({ id: "dup-link", title: "问题 C", url: "https://www.zhihu.com/q/b?x=1", authorityLevel: 4 }),
-        evidence({ id: "top", title: "问题 D", url: "https://www.zhihu.com/q/d", authorityLevel: 4, voteUpCount: 1 }),
+        evidence({ id: "ignored", title: "问题 D", url: "https://www.zhihu.com/q/d", authorityLevel: 4, voteUpCount: 1 }),
       ],
       intentKeywords(intent),
     );
-    expect(selected.map(({ id }) => id)).toEqual(["top", "high-votes"]);
+    // Readers' votes outrank the coarse authority tier: an answer 99 people
+    // found useful beats one nobody voted for a tier above it.
+    expect(selected.map(({ id }) => id)).toEqual(["well-liked", "liked", "ignored"]);
   });
+
+  it("prefers someone's own answer over a 专栏文章 of equal standing", () => {
+    const [first] = selectEvidence(
+      [
+        evidence({ id: "article", title: "问题 A", url: "https://www.zhihu.com/q/a", contentType: "Article", voteUpCount: 10 }),
+        evidence({ id: "answer", title: "问题 B", url: "https://www.zhihu.com/q/b", contentType: "Answer", voteUpCount: 10 }),
+      ],
+      intentKeywords(intent),
+      1,
+    );
+    expect(first?.id).toBe("answer");
+  });
+
+  it("lets a clearly more popular 专栏文章 still win", () => {
+    const [first] = selectEvidence(
+      [
+        evidence({ id: "article", title: "问题 A", url: "https://www.zhihu.com/q/a", contentType: "Article", voteUpCount: 5_000 }),
+        evidence({ id: "answer", title: "问题 B", url: "https://www.zhihu.com/q/b", contentType: "Answer", voteUpCount: 10 }),
+      ],
+      intentKeywords(intent),
+      1,
+    );
+    expect(first?.id).toBe("article");
+  });
+
+  it("prefers an author Zhihu has verified when the rest is equal", () => {
+    const [first] = selectEvidence(
+      [
+        evidence({ id: "plain", title: "问题 A", url: "https://www.zhihu.com/q/a", voteUpCount: 30 }),
+        evidence({ id: "badged", title: "问题 B", url: "https://www.zhihu.com/q/b", voteUpCount: 30, authorBadge: "银行话题下的优秀答主" }),
+      ],
+      intentKeywords(intent),
+      1,
+    );
+    expect(first?.id).toBe("badged");
+  });
+
+  it("keeps discussion and length as tie-breakers, not as the lead signal", () => {
+    const [first] = selectEvidence(
+      [
+        evidence({ id: "chatty", title: "问题 A", url: "https://www.zhihu.com/q/a", voteUpCount: 10, commentCount: 500 }),
+        evidence({ id: "voted", title: "问题 B", url: "https://www.zhihu.com/q/b", voteUpCount: 300, commentCount: 0 }),
+      ],
+      intentKeywords(intent),
+      1,
+    );
+    expect(first?.id).toBe("voted");
+  });
+
 });
 
 describe("judgeZhihuCards", () => {

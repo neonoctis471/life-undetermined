@@ -12,6 +12,27 @@ import { ShortTextSchema } from "@/contracts/game";
 
 export const SUPPLEMENT_LABEL = "参考思路 · 非知乎内容";
 
+/*
+ * How many experience cards a response may carry. It lives here, with the
+ * schema that enforces it, because the two were once separate numbers: raising
+ * the selection limit alone made every response fail this schema and the block
+ * reported "nothing found" while the logs happily showed three relevant cards.
+ */
+export const MAX_CARDS = 3;
+
+/** Avatars come from Zhihu's own image CDN; nothing else may be rendered. */
+export function isZhihuImageUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname.endsWith(".zhimg.com") || url.hostname === "zhimg.com" || url.hostname.endsWith(".zhihu.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function isZhihuUrl(value: string): boolean {
   try {
     const url = new URL(value);
@@ -29,8 +50,14 @@ export const ZhihuSearchItemSchema = z.object({
   ContentText: z.string().optional(),
   Url: z.string().optional(),
   AuthorName: z.string().optional(),
+  AuthorAvatar: z.string().optional(),
+  /** Zhihu's own credential line, e.g. 「银行话题下的优秀答主」. */
+  AuthorBadgeText: z.string().optional(),
   VoteUpCount: z.union([z.number(), z.string()]).optional(),
+  CommentCount: z.union([z.number(), z.string()]).optional(),
   AuthorityLevel: z.union([z.number(), z.string()]).optional(),
+  /** The service's own relevance judgement for this query. */
+  RankingScore: z.union([z.number(), z.string()]).optional(),
 });
 
 export const ZhihuSearchResponseSchema = z.object({
@@ -43,11 +70,17 @@ export interface ZhihuEvidence {
   id: string;
   title: string;
   authorName: string;
+  /** null when the item carried no avatar, or one from an unexpected host. */
+  authorAvatar: string | null;
+  /** Zhihu's verification line for this author; null when unbadged. */
+  authorBadge: string | null;
   url: string;
   contentType: string;
   text: string;
   voteUpCount: number;
+  commentCount: number;
   authorityLevel: number;
+  rankingScore: number;
 }
 
 const CardLineSchema = z.string().trim().min(1).max(200);
@@ -59,6 +92,12 @@ export const ZhihuCardSchema = z
     id: z.string().trim().min(1).max(64),
     title: z.string().trim().min(1).max(160),
     authorName: z.string().trim().min(1).max(80),
+    authorAvatar: z
+      .string()
+      .max(500)
+      .refine(isZhihuImageUrl, { message: "must be an https Zhihu image URL" })
+      .nullable(),
+    authorBadge: z.string().trim().min(1).max(60).nullable(),
     url: z.string().max(500).refine(isZhihuUrl, { message: "must be an https zhihu.com URL" }),
     contentType: z.string().max(20),
     excerpt: z.string().trim().min(1).max(200),
@@ -70,6 +109,7 @@ export const ZhihuCardSchema = z
     similarities: z.array(CardLineSchema).max(3),
     differences: z.array(CardLineSchema).max(3),
     voteUpCount: z.number().int().nonnegative(),
+    commentCount: z.number().int().nonnegative(),
   })
   .strict();
 
@@ -107,7 +147,7 @@ export type ExperienceRequest = z.infer<typeof ExperienceRequestSchema>;
 export const ExperienceResponseDataSchema = z
   .object({
     source: z.enum(["ZHIHU", "AI_SUPPLEMENT", "NONE"]),
-    cards: z.array(ExperienceCardSchema).max(2),
+    cards: z.array(ExperienceCardSchema).max(MAX_CARDS),
   })
   .strict()
   .superRefine((value, context) => {

@@ -1,17 +1,17 @@
 import type { IntentCandidate } from "@/ai/contracts";
 
-import type { ZhihuEvidence } from "./contracts";
+import { MAX_CARDS, type ZhihuEvidence } from "./contracts";
 
 /*
  * Deterministic filtering and ranking; no AI involved.
  * - ContentText shorter than MIN_TEXT_LENGTH is dropped;
  * - the title or text must contain at least one Intent keyword;
  * - duplicates (same link or same question title) are dropped;
- * - sorted by AuthorityLevel, then VoteUpCount; the top 2 are kept.
+ * - what survives is sorted by qualityScore and the top few are kept.
  */
 
 export const MIN_TEXT_LENGTH = 100;
-export const MAX_CARDS = 2;
+export { MAX_CARDS };
 
 /** Terms that describe graduates' plans; only those the player actually used become keywords. */
 const INTENT_LEXICON = [
@@ -45,6 +45,34 @@ export function intentKeywords(intent: IntentCandidate): string[] {
   return [...grams].slice(0, 24);
 }
 
+/*
+ * How good this piece is, independent of the player. AuthorityLevel alone is
+ * too coarse to sort by — almost everything the service returns sits at 3 or 4,
+ * which left ties to be broken arbitrarily and let a well-regarded answer lose
+ * to an ignored one a tier above it. Votes lead, through log1p because they
+ * range over four orders of magnitude and the difference between 1000 and 1100
+ * means far less than the difference between 1 and 100.
+ *
+ * A verified author carries real weight: Zhihu's own badge line — 「银行话题下的
+ * 优秀答主」, 「临床医学硕士」 — is the platform vouching that a named, identified
+ * person is behind the answer, which is the whole currency of these cards.
+ *
+ * The penalty on 专栏文章 is the one editorial judgement here: in this subject
+ * area they skew towards agencies and course adverts, while this work is asking
+ * for someone's own account of what happened to them.
+ */
+export function qualityScore(item: ZhihuEvidence): number {
+  return (
+    2.2 * Math.log1p(item.voteUpCount) +
+    0.35 * Math.log1p(item.commentCount) +
+    1.5 * item.authorityLevel +
+    (item.authorBadge ? 1.5 : 0) +
+    item.rankingScore +
+    0.8 * Math.min(item.text.length / 1200, 1) +
+    (item.contentType === "Article" ? -1.2 : 0)
+  );
+}
+
 export function selectEvidence(items: readonly ZhihuEvidence[], keywords: readonly string[], limit = MAX_CARDS): ZhihuEvidence[] {
   const seenLinks = new Set<string>();
   const seenTitles = new Set<string>();
@@ -58,5 +86,5 @@ export function selectEvidence(items: readonly ZhihuEvidence[], keywords: readon
     seenTitles.add(item.title);
     return true;
   });
-  return kept.sort((a, b) => b.authorityLevel - a.authorityLevel || b.voteUpCount - a.voteUpCount).slice(0, limit);
+  return kept.sort((a, b) => qualityScore(b) - qualityScore(a)).slice(0, limit);
 }

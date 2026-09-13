@@ -98,6 +98,12 @@ export async function buildExperienceCards(
     if (card) data = { source: "AI_SUPPLEMENT", cards: [card] };
   }
   const parsed = ExperienceResponseDataSchema.safeParse(data);
+  if (!parsed.success) {
+    // Falling back to NONE here looks to the player exactly like finding
+    // nothing, so the reason must not stay inside the discarded result.
+    const fields = parsed.error.issues.map((issue) => `${issue.path.join(".") || "(root)"}:${issue.code}`).join(" ");
+    console.warn(`[zhihu-response-rejected] source=${data.source} cards=${data.cards.length} ${fields}`);
+  }
   return { data: parsed.success ? parsed.data : { source: "NONE", cards: [] }, stats };
 }
 
@@ -217,6 +223,18 @@ function readCardDrafts(raw: unknown): Map<number, Record<string, unknown>> {
   return drafts;
 }
 
+/*
+ * The final schema is the last gate before a card reaches the player, and a
+ * card that fails it simply vanishes — the block then says "nothing found"
+ * while the logs show three relevant results. Naming the offending fields
+ * costs one line and turns that into something readable. Field names and
+ * issue codes only; no card content is logged.
+ */
+function reportRejectedCard(stage: string, item: ZhihuEvidence, error: { issues: readonly { path: PropertyKey[]; code: string }[] }): void {
+  const fields = error.issues.map((issue) => `${issue.path.join(".") || "(root)"}:${issue.code}`).join(" ");
+  console.warn(`[zhihu-card-rejected] stage=${stage} id=${item.id} ${fields}`);
+}
+
 /** Unaltered original: author, title, excerpt and link only. */
 function originalCard(item: ZhihuEvidence): ZhihuCard | null {
   const parsed = ZhihuCardSchema.safeParse({
@@ -224,6 +242,8 @@ function originalCard(item: ZhihuEvidence): ZhihuCard | null {
     id: item.id,
     title: item.title,
     authorName: item.authorName,
+    authorAvatar: item.authorAvatar,
+    authorBadge: item.authorBadge,
     url: item.url,
     contentType: item.contentType,
     excerpt: excerptOf(item.text),
@@ -234,7 +254,9 @@ function originalCard(item: ZhihuEvidence): ZhihuCard | null {
     similarities: [],
     differences: [],
     voteUpCount: item.voteUpCount,
+    commentCount: item.commentCount,
   });
+  if (!parsed.success) reportRejectedCard("original", item, parsed.error);
   return parsed.success ? parsed.data : null;
 }
 
@@ -294,6 +316,8 @@ export function judgeZhihuCards(
       id: item.id,
       title: item.title,
       authorName: item.authorName,
+      authorAvatar: item.authorAvatar,
+      authorBadge: item.authorBadge,
       url: item.url,
       contentType: item.contentType,
       excerpt: excerptOf(item.text),
@@ -304,8 +328,10 @@ export function judgeZhihuCards(
       similarities,
       differences,
       voteUpCount: item.voteUpCount,
+      commentCount: item.commentCount,
     });
     if (parsed.success) judged.push({ card: parsed.data, relevance });
+    else reportRejectedCard("judged", item, parsed.error);
   });
   judged.sort((a, b) => b.relevance - a.relevance);
   return { cards: judged.map(({ card }) => card), scores };
