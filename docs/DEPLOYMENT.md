@@ -3,7 +3,8 @@
 ## 当前线上
 
 - 作品名：《人生未定式》
-- 对外 Demo 地址：https://indeterminate.eilnoctis.com （生产；所有对外材料一律用这个地址）
+- 对外 Demo 地址：https://indeterminate.eilnoctis.com （生产；所有对外材料一律用这个地址。根路径 307 跳 `/play`，提交时填根地址即可）
+- **不要把 preview.eilnoctis.com 写进任何对外材料**：它是每次 preview 部署都会重新指向的别名，内容随时会变。
 - 阶段验收地址：https://preview.eilnoctis.com （指向最新 preview 部署，公开可访问）
 - `eilnoctis.com` 与 `www.eilnoctis.com`：仍绑在本项目上，不做重定向、暂不解绑；比赛结束后腾给个人站
 - 备用地址：https://twice-eta.vercel.app（`*.vercel.app` 在中国大陆直连会被重置，仅供代理环境使用）
@@ -13,10 +14,12 @@
 
 本机主机名含中文，Vercel CLI 会因非 ASCII 请求头崩溃。运行 CLI 前用 `NODE_OPTIONS=--require <ascii-hostname.cjs>` 只为 CLI 进程改写 `os.hostname()`。
 
-## 前端改造期间的部署纪律
+## 部署纪律
 
-- 改造期间只做 preview 部署（`vercel deploy`，不带 `--prod`），并用 `vercel alias set <preview-url> preview.eilnoctis.com` 挂到预览域名；DNSPod 记录 `preview CNAME cname.vercel-dns.com`。
-- 每个阶段在 preview.eilnoctis.com 验收通过后，才允许 `vercel deploy --prod`。eilnoctis.com 在任何时刻都必须是完整可玩的版本。
+- 先做 preview 部署（`vercel deploy`，不带 `--prod`），并用 `vercel alias set <preview-url> preview.eilnoctis.com` 挂到预览域名；DNSPod 记录 `preview CNAME cname.vercel-dns.com`。
+- 在 preview.eilnoctis.com 手机验收通过后，才允许 `vercel deploy --prod`。对外地址在任何时刻都必须是完整可玩的版本。
+- **所有 Vercel CLI 命令都要带 `--scope neonoctis471s-projects`。** 不带时 `vercel deploy` 会报一句没有上下文的 `Not authorized`，而 `vercel whoami`、`vercel project ls` 却正常——`.vercel/project.json` 里的 orgId 不足以让部署通过鉴权。
+- **提交窗口内不要改 DNS。** 面板上三个域名的「DNS Change Recommended」是 Vercel 推荐更优的 IP/CNAME，不是报错；四个域名当前全部返回 200。改动会触发证书重新签发，曾因一个拼写错误导致整个域名不可用。
 - Preview 与 Production 各有一套环境变量，名称相同，都只经 stdin 写入。
 - 项目 `twice` 已关闭 Vercel Authentication（`ssoProtection: null`），preview 部署与生产一样公开，否则 preview.eilnoctis.com 会被登录页拦住，手机无法验收。需要恢复时：`vercel api /v9/projects/twice -X PATCH --input -`，请求体 `{"ssoProtection":{"deploymentType":"all_except_custom_domains"}}`。
 
