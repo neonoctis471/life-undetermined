@@ -19,7 +19,9 @@ export function GET(request: Request): Response {
   if (!app) return backToGame("unavailable", { app: null, request });
 
   const state = randomUUID();
-  const cookie = serializeState(state, requestOrigin(request));
+  const origin = requestOrigin(request);
+  console.info(`[zhihu-oauth] start from=${origin ?? "-"} redirect=${app.redirectUri}`);
+  const cookie = serializeState(state, origin);
   return new Response(null, {
     status: 302,
     headers: new Headers({

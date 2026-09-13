@@ -123,6 +123,24 @@ function consumeCallbackFlag(): void {
 }
 
 /*
+ * Every outcome says something. An attempt that comes back and changes nothing
+ * on screen is the worst of the three — the player cannot tell whether it
+ * worked, and neither can we.
+ */
+function note(outcome: Outcome | null): string {
+  switch (outcome) {
+    case "failed":
+      return "刚才没能登录成功，可以再试一次。不登录也能玩完整个游戏。";
+    case "declined":
+      return "刚才没有完成授权。想支持的话可以再试一次；不登录也能玩完整个游戏。";
+    case "unavailable":
+      return "知乎登录暂时不可用，不影响你玩完整个游戏。";
+    default:
+      return "完全可选。不登录一样能玩完整个游戏，我们也不会读取或保存你的任何知乎数据。";
+  }
+}
+
+/*
  * The hero's action area. Until the player has signed in — or has been let
  * through by a failure — the only way forward is the consent page; afterwards
  * this is the ordinary start button it has always been.
@@ -154,9 +172,7 @@ export function ZhihuGate({ onStart, startLabel }: { onStart(): void; startLabel
             <a className="link-button" href="/api/v1/zhihu/oauth/start" onClick={markAttempt}>
               用知乎账号登录，支持这个作品 <span aria-hidden="true">↗</span>
             </a>
-            <p className="muted">
-              完全可选。不登录一样能玩完整个游戏，我们也不会读取或保存你的任何知乎数据。
-            </p>
+            <p className="muted">{note(status.outcome)}</p>
           </div>
         )}
       </>
@@ -173,8 +189,8 @@ export function ZhihuGate({ onStart, startLabel }: { onStart(): void; startLabel
         <span className="hero-duration">约 8–10 分钟</span>
       </div>
       <p className="muted">
-        {status.outcome === "declined"
-          ? "你在知乎上取消了授权。这个作品需要登录后体验，想继续的话再授权一次就好。"
+        {status.outcome
+          ? note(status.outcome)
           : "这是知乎黑客松参赛作品，需要用知乎账号登录后体验。登录只用于确认你来过，我们不会读取或保存你的任何知乎数据。"}
       </p>
       {status.attempted && (
