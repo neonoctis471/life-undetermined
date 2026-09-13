@@ -6,6 +6,7 @@ import {
   cookieDomain,
   isReturnableOrigin,
   parseState,
+  readAuthorizationCode,
   serializeState,
   stateCookie,
 } from "@/app/api/v1/zhihu/oauth/shared";
@@ -135,5 +136,26 @@ describe("return-origin handling", () => {
     expect(isReturnableOrigin("https://noteilnoctis.com", PROD)).toBe(false);
     expect(isReturnableOrigin("javascript:alert(1)", PROD)).toBe(false);
     expect(isReturnableOrigin("not a url", PROD)).toBe(false);
+  });
+});
+
+describe("reading the authorization code", () => {
+  const at = (query: string) => new URL(`https://example.com/cb${query}`);
+
+  it("accepts the name Zhihu actually sends it under", () => {
+    expect(readAuthorizationCode(at("?state=s&authorization_code=abc"))).toBe("abc");
+  });
+
+  it("still accepts the standard OAuth name", () => {
+    expect(readAuthorizationCode(at("?state=s&code=abc"))).toBe("abc");
+  });
+
+  it("prefers Zhihu's name when both somehow appear", () => {
+    expect(readAuthorizationCode(at("?authorization_code=real&code=other"))).toBe("real");
+  });
+
+  it("treats absent or empty as no code, so a cancellation stays a cancellation", () => {
+    expect(readAuthorizationCode(at("?state=s"))).toBeNull();
+    expect(readAuthorizationCode(at("?authorization_code="))).toBeNull();
   });
 });

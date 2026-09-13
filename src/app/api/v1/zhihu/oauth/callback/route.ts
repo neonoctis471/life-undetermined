@@ -1,6 +1,6 @@
 import { exchangeAuthorizationCode } from "@/zhihu/oauth";
 
-import { STATE_COOKIE, backToGame, parseState, readCookie, readOAuthApp } from "../shared";
+import { STATE_COOKIE, backToGame, parseState, readAuthorizationCode, readCookie, readOAuthApp } from "../shared";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -22,7 +22,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const url = new URL(request.url);
-  const code = url.searchParams.get("code");
+  const code = readAuthorizationCode(url);
   const state = url.searchParams.get("state");
   const stored = parseState(readCookie(request.headers.get("cookie"), STATE_COOKIE));
   const returnOrigin = stored?.returnOrigin ?? null;

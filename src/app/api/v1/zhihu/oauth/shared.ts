@@ -92,6 +92,17 @@ export function stateCookie(value: string, redirectUri: string, maxAge: number):
     .join("; ");
 }
 
+/*
+ * The two ends of this handshake do not agree on a name. Zhihu returns the
+ * authorization code as `authorization_code`, while its own token endpoint
+ * refuses anything but `code` — reading the standard OAuth name here silently
+ * loses every successful authorisation, which is exactly what it did.
+ */
+export function readAuthorizationCode(url: URL): string | null {
+  const code = url.searchParams.get("authorization_code") ?? url.searchParams.get("code");
+  return code && code.length > 0 ? code : null;
+}
+
 export function readCookie(header: string | null, name: string): string | null {
   if (!header) return null;
   for (const part of header.split(";")) {
