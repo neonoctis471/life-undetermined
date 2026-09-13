@@ -15,13 +15,15 @@ import type { GameAction, GameState } from "@/game-state";
 import {
   buildDecision,
   choiceSummaries,
+  factsInSnapshot,
+  forkChoiceSummary,
+  forkPointAt,
+  forkPoints,
   isKeyDecisionTurn,
-  keyChoiceSummary,
-  keyDecisionContext,
   nextChapter,
   previousChoices,
-  snapshotFacts,
   toIntentCandidate,
+  type ForkPoint,
 } from "@/game/flow";
 import { buildKeyDecisionSnapshot } from "@/game/key-snapshot";
 import type { ExperienceRequest, ExperienceResponseData } from "@/zhihu/contracts";
@@ -111,6 +113,8 @@ export default function PlayPage() {
   const [fiveYears, setFiveYears] = useState<LifeSlot>(IDLE);
   const [accelerating, setAccelerating] = useState(false);
   const [forkPicking, setForkPicking] = useState(false);
+  // Which of the three Decisions the player chose to rewind to.
+  const [forkIndex, setForkIndex] = useState<number | null>(null);
   const [parallel, setParallel] = useState<LifeSlot>(IDLE);
   const [forkChoice, setForkChoice] = useState<ForkChoice | null>(() => loadForkChoice());
   const [notice, setNotice] = useState<string | null>(null);
@@ -340,14 +344,17 @@ export default function PlayPage() {
       isKeyDecision,
     });
     let keyDecisionSnapshot;
+    let decisionSnapshot;
     try {
-      // Built by the application from authoritative state, never by AI.
-      keyDecisionSnapshot = isKeyDecision ? buildKeyDecisionSnapshot(state, decision.id, engineDeps) : undefined;
+      // Built by the application from authoritative state, never by AI. Every
+      // turn gets one, so the player can later rewind to any of the three.
+      decisionSnapshot = buildKeyDecisionSnapshot(state, decision.id, engineDeps);
+      keyDecisionSnapshot = isKeyDecision ? decisionSnapshot : undefined;
     } catch {
-      setNotice("关键决定的快照没有生成成功，可以重新开始。");
+      setNotice("这一步的快照没有生成成功，可以重新开始。");
       return;
     }
-    if (!dispatch({ type: "RECORD_DECISION", decision, keyDecisionSnapshot })) return;
+    if (!dispatch({ type: "RECORD_DECISION", decision, keyDecisionSnapshot, decisionSnapshot })) return;
     setNotice(null);
     resolveOutcome();
   };
@@ -371,20 +378,20 @@ export default function PlayPage() {
     }
   };
 
-  const runCounterfactual = (replacement: string) => {
+  const runCounterfactual = (point: ForkPoint, replacement: string) => {
     const state = getGameStore().getState();
-    const snapshot = state.keyDecisionSnapshot;
     const originalLife = state.fiveYearLife;
-    const keyChoice = keyChoiceSummary(state);
-    if (!snapshot || !originalLife || !keyChoice || state.currentStage !== "FORK_READY") return;
+    if (!originalLife || state.currentStage !== "FORK_READY") return;
     const token = session.current;
     setParallel({ status: "pending" });
     Promise.all([
       requestLife({
         mode: "COUNTERFACTUAL",
-        snapshot,
-        facts: snapshotFacts(state),
-        keyChoice,
+        // Only the rewound turn is replaced; the Snapshot freezes everything
+        // that had already happened before it.
+        snapshot: point.snapshot,
+        facts: factsInSnapshot(state, point.snapshot),
+        keyChoice: forkChoiceSummary(point),
         replacementAction: replacement,
         originalLife,
       }),
@@ -407,24 +414,24 @@ export default function PlayPage() {
 
   const confirmFork = (action: Action, customText?: string) => {
     const state = getGameStore().getState();
-    const key = keyDecisionContext(state);
-    if (!key || !["REUNION_READY", "FORK_READY"].includes(state.currentStage)) return;
+    const point = forkIndex === null ? null : forkPointAt(state, forkIndex);
+    if (!point || !["REUNION_READY", "FORK_READY"].includes(state.currentStage)) return;
     const replacement = (action.kind === "CUSTOM_PLACEHOLDER" ? (customText ?? "") : action.label).trim();
     if (!replacement) {
       setNotice("写下你想换成的选择。");
       return;
     }
-    if (replacement === key.label.trim()) {
+    if (replacement === point.label.trim()) {
       setNotice("换一个和当时不同的选择。");
       return;
     }
     if (state.currentStage === "REUNION_READY" && !dispatch({ type: "OPEN_FORK" })) return;
-    const choice = { gameId: state.gameId, text: replacement.slice(0, 400) };
+    const choice = { gameId: state.gameId, decisionId: point.decision.id, text: replacement.slice(0, 400) };
     setForkChoice(choice);
     saveForkChoice(choice);
     setForkPicking(false);
     setNotice(null);
-    runCounterfactual(choice.text);
+    runCounterfactual(point, choice.text);
   };
 
   const reset = () => {
@@ -461,6 +468,11 @@ export default function PlayPage() {
   const lifeBadge = (slot: LifeSlot) =>
     slot.status === "ready" ? { generation: slot.value.data.generation, elapsedMs: slot.value.elapsedMs } : undefined;
   const replacement = forkChoice?.gameId === gameState.gameId ? forkChoice.text : null;
+  const activeForkPoint =
+    (forkIndex === null ? null : forkPointAt(gameState, forkIndex)) ??
+    (forkChoice?.gameId === gameState.gameId && forkChoice.decisionId
+      ? (forkPoints(gameState).find((point) => point.decision.id === forkChoice.decisionId) ?? null)
+      : null);
   const currentChapter = gameState.situations.at(-1)?.situation.chapter;
   const showHero = stage === "CREATED" && heroOpen && understanding.status === "idle";
   const wideStage = stage === "CREATED" && !showHero;
@@ -579,20 +591,27 @@ export default function PlayPage() {
       break;
     case "REUNION_READY":
       body = forkPicking ? (
-        <ForkChooser state={gameState} onConfirm={confirmFork} />
+        <ForkChooser point={activeForkPoint} onBack={() => setForkPicking(false)} onConfirm={confirmFork} />
       ) : (
-        <ReunionView state={gameState} badge={lifeBadge(fiveYears)} onPickKey={() => setForkPicking(true)} />
+        <ReunionView
+          state={gameState}
+          badge={lifeBadge(fiveYears)}
+          onPickKey={(index) => {
+            setForkIndex(index);
+            setForkPicking(true);
+          }}
+        />
       );
       break;
     case "FORK_READY":
       if (parallel.status === "pending" && replacement) {
-        body = <RewindTransition state={gameState} replacement={replacement} />;
+        body = <RewindTransition state={gameState} point={activeForkPoint} replacement={replacement} />;
       } else if (parallel.status === "error" && replacement) {
         body = (
           <section className="screen">
             <p className="error">{parallel.message}</p>
             <div className="row">
-              <button className="btn btn-primary" onClick={() => runCounterfactual(replacement)}>
+              <button className="btn btn-primary" disabled={!activeForkPoint} onClick={() => activeForkPoint && runCounterfactual(activeForkPoint, replacement)}>
                 重试
               </button>
               <button className="btn" onClick={() => setParallel(IDLE)}>
@@ -602,13 +621,14 @@ export default function PlayPage() {
           </section>
         );
       } else {
-        body = <ForkChooser state={gameState} onConfirm={confirmFork} />;
+        body = <ForkChooser point={activeForkPoint} onBack={() => setForkPicking(false)} onConfirm={confirmFork} />;
       }
       break;
     case "COMPARISON_READY":
       body = (
         <ComparisonView
           state={gameState}
+          point={activeForkPoint}
           replacement={replacement}
           badge={lifeBadge(parallel)}
           onFinish={() => dispatch({ type: "COMPLETE" })}

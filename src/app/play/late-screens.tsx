@@ -4,8 +4,7 @@ import { useState } from "react";
 
 import type { Action } from "@/contracts/game";
 import type { GameState, LifePath } from "@/game-state";
-import { keyDecisionContext } from "@/game/flow";
-import { describeDecisionAction } from "@/game/labels";
+import { forkPoints, type ForkPoint } from "@/game/flow";
 
 import { DISPLAY } from "./copy";
 import { ForkMark } from "./brand";
@@ -48,7 +47,7 @@ export function FiveYearsTransition({ state }: { state: GameState }) {
 
 // Screens 10-12: reunion, five-year memorial, key decision timeline -------------
 
-export function ReunionView(props: { state: GameState; badge?: Badge; onPickKey(): void }) {
+export function ReunionView(props: { state: GameState; badge?: Badge; onPickKey(index: number): void }) {
   const { state } = props;
   const life = state.fiveYearLife;
   const intent = state.intent;
@@ -77,26 +76,22 @@ export function ReunionView(props: { state: GameState; badge?: Badge; onPickKey(
       <h3 className="subhead">{DISPLAY.forkQuestion}</h3>
       <p className="lede">这五年里，有哪一次选择，你还想回去看看？</p>
       <ol className="option-list decision-list">
-        {state.decisions.map((decision) => {
-          const situation = state.situations.find((played) => played.situation.id === decision.situationId)?.situation;
-          const label = situation ? describeDecisionAction(decision, situation) : "";
-          return (
-            <li key={decision.id} className="option-row">
-              <span>
-                <span className="meta">{situation?.timeLabel}</span>
-                <br />
-                {label}
-              </span>
-              {decision.isKeyDecision ? (
-                <button className="btn btn-primary" onClick={props.onPickKey}>
-                  回到这个决定
-                </button>
-              ) : (
-                <span className="meta">这一次暂不开放回溯</span>
-              )}
-            </li>
-          );
-        })}
+        {forkPoints(state).map((point) => (
+          <li key={point.decision.id} className="option-row">
+            <span>
+              <span className="meta">{point.situation.timeLabel}</span>
+              <br />
+              {point.label}
+            </span>
+            <button
+              className="btn btn-primary"
+              aria-label={`回到${point.situation.timeLabel}的决定`}
+              onClick={() => props.onPickKey(point.index)}
+            >
+              回到这个决定
+            </button>
+          </li>
+        ))}
       </ol>
     </section>
   );
@@ -104,10 +99,14 @@ export function ReunionView(props: { state: GameState; badge?: Badge; onPickKey(
 
 // Screen 13: choose the single replacement Decision -----------------------------
 
-export function ForkChooser(props: { state: GameState; onConfirm(action: Action, customText?: string): void }) {
+export function ForkChooser(props: {
+  point: ForkPoint | null;
+  onBack(): void;
+  onConfirm(action: Action, customText?: string): void;
+}) {
   const [customOpen, setCustomOpen] = useState(false);
   const [customText, setCustomText] = useState("");
-  const key = keyDecisionContext(props.state);
+  const key = props.point;
   if (!key) return null;
   const alternatives = key.situation.availableActions.filter(
     (action) => action.kind === "PRESET" && action.id !== key.decision.selectedActionId,
@@ -115,7 +114,7 @@ export function ForkChooser(props: { state: GameState; onConfirm(action: Action,
   const custom = key.situation.availableActions.find((action) => action.kind === "CUSTOM_PLACEHOLDER");
   return (
     <section className="screen">
-      <ScreenHead eyebrow={DISPLAY.eyebrows.fork} title={DISPLAY.forkTitle} />
+      <ScreenHead eyebrow={`回溯 / 回到${key.situation.timeLabel}`} title={DISPLAY.forkTitle} />
       <p className="scene">{key.situation.concreteContext}</p>
       <p className="meta">你当时选择的：</p>
       <p className="echo">「{key.label}」</p>
@@ -150,14 +149,19 @@ export function ForkChooser(props: { state: GameState; onConfirm(action: Action,
           </div>
         </div>
       )}
+      <div className="row">
+        <button className="text-button" onClick={props.onBack}>
+          ← 换一次选择回溯
+        </button>
+      </div>
     </section>
   );
 }
 
 // Rewind transition, covering SIMULATE_LIFE(COUNTERFACTUAL) ---------------------
 
-export function RewindTransition({ state, replacement }: { state: GameState; replacement: string }) {
-  const key = keyDecisionContext(state);
+export function RewindTransition({ state, point, replacement }: { state: GameState; point: ForkPoint | null; replacement: string }) {
+  const key = point;
   const back = (state.fiveYearLife?.timeline ?? [])
     .slice()
     .reverse()
@@ -181,10 +185,16 @@ export function RewindTransition({ state, replacement }: { state: GameState; rep
 
 // Screen 14: two lives side by side ---------------------------------------------
 
-export function ComparisonView(props: { state: GameState; replacement: string | null; badge?: Badge; onFinish(): void }) {
+export function ComparisonView(props: {
+  state: GameState;
+  point: ForkPoint | null;
+  replacement: string | null;
+  badge?: Badge;
+  onFinish(): void;
+}) {
   const [activeLife, setActiveLife] = useState(0);
   const { fiveYearLife: original, parallelLife: parallel, comparison } = props.state;
-  const key = keyDecisionContext(props.state);
+  const key = props.point;
   if (!original || !parallel || !comparison) return null;
   const groups: [string, string[]][] = [
     ["因为那个决定逐渐发生变化的", comparison.changedByDecision],

@@ -65,6 +65,13 @@ const GameStateStructureSchema = z
     decisions: z.array(DecisionSchema).max(MAX_MAIN_SITUATIONS),
     outcomes: z.array(ResolvedOutcomeSchema).max(MAX_MAIN_SITUATIONS),
     keyDecisionSnapshot: SnapshotSchema.nullable(),
+    /*
+     * One pre-decision Snapshot per Decision, index-aligned with `decisions`, so
+     * the player can rewind to any of the three turns and not only the key one.
+     * Defaulted, because saves written before rewinding was opened up do not
+     * carry it; such a save simply offers the single legacy fork point.
+     */
+    decisionSnapshots: z.array(SnapshotSchema).max(MAX_MAIN_SITUATIONS).default([]),
     fiveYearLife: LifePathSchema.nullable(),
     parallelLife: LifePathSchema.nullable(),
     comparison: LifeComparisonSchema.nullable(),
@@ -228,6 +235,32 @@ export function validateGameStateConsistency(state: GameStateStructure): GameSta
     if (!sameValue(snapshot.intent, state.intent)) issue(["keyDecisionSnapshot", "intent"], "Snapshot Intent must match confirmed Intent");
     if (!sameValue(snapshot.activeFactIds, expectedActiveFactIds)) {
       issue(["keyDecisionSnapshot", "activeFactIds"], "Snapshot Facts must match the pre-decision state");
+    }
+  }
+
+  // Per-Decision Snapshots: either absent entirely (a save from before rewinding
+  // was opened up) or one for every Decision, in the same order.
+  if (state.decisionSnapshots.length > 0 && state.decisionSnapshots.length !== decisionCount) {
+    issue(["decisionSnapshots"], "every Decision needs a Snapshot once any Decision has one");
+  }
+  for (const [index, taken] of state.decisionSnapshots.entries()) {
+    const decision = state.decisions[index];
+    if (!decision) {
+      issue(["decisionSnapshots", index], "Snapshot does not correspond to a Decision");
+      continue;
+    }
+    const factsBeforeCount = state.outcomes
+      .slice(0, index)
+      .reduce((count, outcome) => count + outcome.addedFacts.length, 0);
+    if (taken.gameId !== state.gameId) issue(["decisionSnapshots", index, "gameId"], "Snapshot must reference this game");
+    if (taken.keyDecisionId !== decision.id) {
+      issue(["decisionSnapshots", index, "keyDecisionId"], "Snapshot must reference the Decision it precedes");
+    }
+    if (!sameValue(taken.intent, state.intent)) {
+      issue(["decisionSnapshots", index, "intent"], "Snapshot Intent must match confirmed Intent");
+    }
+    if (!sameValue(taken.activeFactIds, state.facts.slice(0, factsBeforeCount).map(({ id }) => id))) {
+      issue(["decisionSnapshots", index, "activeFactIds"], "Snapshot Facts must match the pre-decision state");
     }
   }
 

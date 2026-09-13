@@ -35,7 +35,7 @@ export interface EngineDependencies {
 export type GameAction =
   | { type: "CONFIRM_INTENT"; intent: Intent }
   | { type: "ADD_SITUATION"; situation: Situation; selectedPossibilityId: string }
-  | { type: "RECORD_DECISION"; decision: Decision; keyDecisionSnapshot?: Snapshot }
+  | { type: "RECORD_DECISION"; decision: Decision; keyDecisionSnapshot?: Snapshot; decisionSnapshot?: Snapshot }
   | { type: "APPLY_OUTCOME"; outcome: ResolvedOutcome }
   | { type: "SET_FIVE_YEAR_LIFE"; life: LifePath }
   | { type: "OPEN_FORK" }
@@ -56,6 +56,7 @@ export function createInitialGameState(deps: EngineDependencies): GameState {
     decisions: [],
     outcomes: [],
     keyDecisionSnapshot: null,
+    decisionSnapshots: [],
     fiveYearLife: null,
     parallelLife: null,
     comparison: null,
@@ -148,7 +149,37 @@ export function transitionGameState(
       } else if (action.keyDecisionSnapshot) {
         throw new GameStateError("KEY_SNAPSHOT_MISMATCH", "non-key Decision cannot capture a key Snapshot");
       }
-      return parseNext({ ...state, decisions: [...state.decisions, decision], keyDecisionSnapshot, currentStage: "DECISION_RECORDED", updatedAt: now });
+      /*
+       * Every Decision may also capture its own pre-decision Snapshot, which is
+       * what lets the player rewind to any of the three turns. It is optional so
+       * that callers which never rewind stay valid, but once used it must be
+       * supplied for every Decision, or the array would stop lining up with
+       * `decisions` and a rewind would restore the wrong turn.
+       */
+      let decisionSnapshots = state.decisionSnapshots;
+      if (action.decisionSnapshot) {
+        if (decisionSnapshots.length !== state.decisions.length) {
+          throw new GameStateError("KEY_SNAPSHOT_MISMATCH", "every earlier Decision must already have a Snapshot");
+        }
+        const taken = parseInput(SnapshotSchema, action.decisionSnapshot, "Snapshot");
+        if (taken.gameId !== state.gameId || taken.keyDecisionId !== decision.id || !sameIntent(taken.intent, state.intent)) {
+          throw new GameStateError("KEY_SNAPSHOT_MISMATCH", "Snapshot does not match game and Decision");
+        }
+        if (!sameStringArray(taken.activeFactIds, state.facts.map(({ id }) => id))) {
+          throw new GameStateError("KEY_SNAPSHOT_MISMATCH", "Snapshot active Facts do not match the pre-decision state");
+        }
+        decisionSnapshots = [...decisionSnapshots, taken];
+      } else if (decisionSnapshots.length > 0) {
+        throw new GameStateError("KEY_SNAPSHOT_REQUIRED", "this Decision also needs its own Snapshot");
+      }
+      return parseNext({
+        ...state,
+        decisions: [...state.decisions, decision],
+        keyDecisionSnapshot,
+        decisionSnapshots,
+        currentStage: "DECISION_RECORDED",
+        updatedAt: now,
+      });
     }
     case "APPLY_OUTCOME": {
       requireStage(state, ["DECISION_RECORDED"]);

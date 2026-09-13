@@ -61,7 +61,9 @@ const emptyState = {
 
 describe("lightweight game state contracts", () => {
   it("accepts a new empty local game", () => {
-    expect(GameStateSchema.parse(emptyState)).toEqual(emptyState);
+    // A save written before per-Decision Snapshots existed has no
+    // decisionSnapshots key; it must still load, with no fork points.
+    expect(GameStateSchema.parse(emptyState)).toEqual({ ...emptyState, decisionSnapshots: [] });
   });
 
   it.each(["INTENT_CONFIRMED", "SITUATION_READY", "DECISION_RECORDED", "OUTCOME_RESOLVED", "LONG_TERM_READY", "REUNION_READY", "FORK_READY", "COMPARISON_READY", "COMPLETED"])("rejects empty history at %s", (currentStage) => {

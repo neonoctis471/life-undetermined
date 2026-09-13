@@ -8,6 +8,8 @@ const KEY = "zhihu-five-years-game:fork-choice:v1";
 
 export interface ForkChoice {
   gameId: string;
+  /** The Decision that was rewound, so a refresh can still name the right turn. */
+  decisionId: string;
   text: string;
 }
 
@@ -17,8 +19,9 @@ export function loadForkChoice(): ForkChoice | null {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<ForkChoice> | null;
+    // decisionId is absent in choices saved before any turn could be rewound.
     return typeof value?.gameId === "string" && typeof value.text === "string"
-      ? { gameId: value.gameId, text: value.text.slice(0, 400) }
+      ? { gameId: value.gameId, decisionId: typeof value.decisionId === "string" ? value.decisionId : "", text: value.text.slice(0, 400) }
       : null;
   } catch {
     return null;

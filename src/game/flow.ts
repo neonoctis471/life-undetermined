@@ -1,5 +1,5 @@
 import type { ChoiceSummary, IntentCandidate, MainChapter } from "@/ai/contracts";
-import type { Action, Decision, Fact, Intent, Situation } from "@/contracts/game";
+import type { Action, Decision, Fact, Intent, Situation, Snapshot } from "@/contracts/game";
 import type { GameState } from "@/game-state";
 
 import { describeDecisionAction } from "./labels";
@@ -98,6 +98,49 @@ export function keyChoiceSummary(state: GameState): ChoiceSummary | null {
 
 /** The Facts active before the key Decision, in the Snapshot's order. */
 export function snapshotFacts(state: GameState): Fact[] {
-  const active = new Set(state.keyDecisionSnapshot?.activeFactIds ?? []);
+  return factsInSnapshot(state, state.keyDecisionSnapshot);
+}
+
+/** The Facts a given Snapshot froze, in GameState order. */
+export function factsInSnapshot(state: GameState, snapshot: Snapshot | null): Fact[] {
+  const active = new Set(snapshot?.activeFactIds ?? []);
   return state.facts.filter(({ id }) => active.has(id));
+}
+
+/** One Decision the player may rewind to, with everything a counterfactual needs. */
+export interface ForkPoint {
+  index: number;
+  decision: Decision;
+  situation: Situation;
+  label: string;
+  snapshot: Snapshot;
+}
+
+/*
+ * Every Decision that carries a pre-decision Snapshot can be rewound. Saves
+ * written before per-Decision Snapshots existed only have the single legacy
+ * key Snapshot, so those games still offer exactly one fork point.
+ */
+export function forkPoints(state: GameState): ForkPoint[] {
+  const points = state.decisions.flatMap<ForkPoint>((decision, index) => {
+    const situation = situationOf(state, decision);
+    const snapshot =
+      state.decisionSnapshots[index] ??
+      (decision.isKeyDecision && state.keyDecisionSnapshot?.keyDecisionId === decision.id
+        ? state.keyDecisionSnapshot
+        : null);
+    return situation && snapshot
+      ? [{ index, decision, situation, label: describeDecisionAction(decision, situation), snapshot }]
+      : [];
+  });
+  return points;
+}
+
+export function forkPointAt(state: GameState, index: number): ForkPoint | null {
+  return forkPoints(state).find((point) => point.index === index) ?? null;
+}
+
+/** The summary of the Decision being replaced; it is the key choice of this rewind. */
+export function forkChoiceSummary(point: ForkPoint): ChoiceSummary {
+  return { ...summarize(point.decision, point.situation), isKeyDecision: true };
 }
