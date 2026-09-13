@@ -140,16 +140,44 @@ export function PlanExperiencePanel(props: { experience?: Async<ExperienceRespon
   );
 }
 
+/*
+ * A row of the actual faces behind the fold. This panel sits above the
+ * decision, so it stays collapsed — two or three cards expanded would push the
+ * choices a full screen down on a phone — but a bare line of text gives the
+ * player no reason to believe anything real is under it. The avatars do.
+ */
+function AuthorStrip({ cards }: { cards: readonly ZhihuCard[] }) {
+  if (cards.length === 0) return null;
+  return (
+    <span className="author-strip" aria-hidden="true">
+      {cards.slice(0, 3).map((card) =>
+        card.authorAvatar ? (
+          <Image key={card.id} className="strip-avatar" src={card.authorAvatar} alt="" width={26} height={26} unoptimized />
+        ) : (
+          <span key={card.id} className="strip-avatar is-blank">
+            {[...card.authorName][0] ?? "知"}
+          </span>
+        ),
+      )}
+    </span>
+  );
+}
+
 /** Optional and non-blocking: hidden while idle, on error, or when there is nothing to show. */
 export function ExperiencePanel({ experience }: { experience?: Async<ExperienceResponseData> }) {
   const [open, setOpen] = useState(false);
   if (!experience || experience.status === "idle" || experience.status === "error") return null;
   if (experience.status === "ready" && experience.value.cards.length === 0) return null;
-  const supplementOnly = experience.status === "ready" && experience.value.source === "AI_SUPPLEMENT";
+  const ready = experience.status === "ready" ? experience.value : null;
+  const supplementOnly = ready?.source === "AI_SUPPLEMENT";
+  const zhihuCards = (ready?.cards ?? []).filter((card): card is ZhihuCard => card.provenance !== "AI_SUPPLEMENT");
   return (
     <div className="experience">
-      <button className="link-button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        {supplementOnly ? "看看几个参考思路" : "看看知乎朋友们是怎么选择的"} {open ? "−" : "＋"}
+      <button className="link-button has-strip" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+        <AuthorStrip cards={zhihuCards} />
+        {supplementOnly ? "看看几个参考思路" : "看看知乎朋友们是怎么选择的"}
+        {zhihuCards.length > 0 && <span className="muted strip-count">{zhihuCards.length} 位过来人</span>}
+        <span aria-hidden="true">{open ? "−" : "＋"}</span>
       </button>
       {open &&
         (experience.status === "pending" ? (

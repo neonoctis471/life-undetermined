@@ -464,3 +464,11 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
 .card-badge { font-style: normal; font-size: 11px; font-weight: 650; color: var(--blue); }
 .card-badge::before { content: "✓ "; }
 .card-votes { font-weight: 750; color: var(--blue); }
+
+/* Collapsed experience entry: the faces are the reason to open it. */
+.link-button.has-strip { gap: 8px; flex-wrap: wrap; }
+.author-strip { display: inline-flex; align-items: center; }
+.author-strip .strip-avatar { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--paper); object-fit: cover; background: var(--ice); }
+.author-strip .strip-avatar + .strip-avatar { margin-left: -9px; }
+.author-strip .strip-avatar.is-blank { display: flex; align-items: center; justify-content: center; color: var(--blue); font-size: 11px; font-weight: 800; }
+.strip-count { font-size: 11px; font-weight: 500; }

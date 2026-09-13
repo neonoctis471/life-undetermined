@@ -15,11 +15,14 @@ const intent = {
 };
 const body = "毕业后我回家帮父母看店，一边学剪辑一边拍视频，头三个月几乎没有收入。".repeat(4);
 
+// Distinct authors by default: selection keeps one card per author, so a shared
+// name would quietly collapse every fixture list down to its first entry.
 function evidence(overrides: Partial<ZhihuEvidence> = {}): ZhihuEvidence {
+  const id = overrides.id ?? "1";
   return {
     id: "1",
     title: "要不要回家接手父母生意?",
-    authorName: "作者甲",
+    authorName: `作者${id}`,
     authorAvatar: "https://picx.zhimg.com/50/v2-abc_l.jpg",
     authorBadge: null,
     url: "https://www.zhihu.com/question/1/answer/2?utm_source=x",
@@ -182,7 +185,7 @@ describe("judgeZhihuCards", () => {
     expect(cards[0]).toMatchObject({
       provenance: "ZHIHU_ADAPTED",
       relevance: 8,
-      authorName: "作者甲",
+      authorName: "作者1",
       url: "https://www.zhihu.com/question/1/answer/2?utm_source=x",
       whatTheyDid: "一边学剪辑一边拍视频",
       whatHappened: null,
@@ -274,5 +277,43 @@ describe("buildExperienceCards", () => {
 
     const nothing = await buildExperienceCards(request, { zhihu: downZhihu, ai: aiReturning("抱歉"), createId });
     expect(nothing.data).toEqual({ source: "NONE", cards: [] });
+  });
+});
+
+describe("who gets to speak", () => {
+  it("gives an institutional badge no credit at all", () => {
+    const [first] = selectEvidence(
+      [
+        evidence({ id: "org", title: "问题 A", url: "https://www.zhihu.com/q/a", voteUpCount: 40, authorName: "技能研究所", authorBadge: "已认证机构号" }),
+        evidence({ id: "person", title: "问题 B", url: "https://www.zhihu.com/q/b", voteUpCount: 40, authorName: "某人", authorBadge: "临床医学硕士" }),
+      ],
+      intentKeywords(intent),
+      1,
+    );
+    expect(first?.id).toBe("person");
+  });
+
+  it("still lets an institution through when it is plainly the better answer", () => {
+    const [first] = selectEvidence(
+      [
+        evidence({ id: "org", title: "问题 A", url: "https://www.zhihu.com/q/a", voteUpCount: 5_000, authorName: "技能研究所", authorBadge: "已认证机构号" }),
+        evidence({ id: "person", title: "问题 B", url: "https://www.zhihu.com/q/b", voteUpCount: 10, authorName: "某人", authorBadge: "临床医学硕士" }),
+      ],
+      intentKeywords(intent),
+      1,
+    );
+    expect(first?.id).toBe("org");
+  });
+
+  it("shows each author once, so several cards mean several voices", () => {
+    const selected = selectEvidence(
+      [
+        evidence({ id: "a1", title: "问题 A", url: "https://www.zhihu.com/q/a", authorName: "千山和万水", voteUpCount: 135 }),
+        evidence({ id: "a2", title: "问题 B", url: "https://www.zhihu.com/q/b", authorName: "千山和万水", voteUpCount: 19 }),
+        evidence({ id: "b1", title: "问题 C", url: "https://www.zhihu.com/q/c", authorName: "另一个人", voteUpCount: 5 }),
+      ],
+      intentKeywords(intent),
+    );
+    expect(selected.map(({ authorName }) => authorName)).toEqual(["千山和万水", "另一个人"]);
   });
 });

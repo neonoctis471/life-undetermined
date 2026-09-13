@@ -56,17 +56,24 @@ export function intentKeywords(intent: IntentCandidate): string[] {
  * A verified author carries real weight: Zhihu's own badge line — 「银行话题下的
  * 优秀答主」, 「临床医学硕士」 — is the platform vouching that a named, identified
  * person is behind the answer, which is the whole currency of these cards.
+ * 「已认证机构号」 is the one badge that earns nothing: it certifies a company,
+ * and a company's account is precisely what this work is not asking for.
  *
  * The penalty on 专栏文章 is the one editorial judgement here: in this subject
  * area they skew towards agencies and course adverts, while this work is asking
  * for someone's own account of what happened to them.
  */
+/** 「已认证机构号」 and its kin certify an organisation, not a person who lived this. */
+function isPersonalBadge(badge: string | null): boolean {
+  return badge !== null && !/机构|官方|企业/.test(badge);
+}
+
 export function qualityScore(item: ZhihuEvidence): number {
   return (
     2.2 * Math.log1p(item.voteUpCount) +
     0.35 * Math.log1p(item.commentCount) +
     1.5 * item.authorityLevel +
-    (item.authorBadge ? 1.5 : 0) +
+    (isPersonalBadge(item.authorBadge) ? 1.5 : 0) +
     item.rankingScore +
     0.8 * Math.min(item.text.length / 1200, 1) +
     (item.contentType === "Article" ? -1.2 : 0)
@@ -76,14 +83,20 @@ export function qualityScore(item: ZhihuEvidence): number {
 export function selectEvidence(items: readonly ZhihuEvidence[], keywords: readonly string[], limit = MAX_CARDS): ZhihuEvidence[] {
   const seenLinks = new Set<string>();
   const seenTitles = new Set<string>();
+  /*
+   * One card per author. Two answers by the same person read as one voice
+   * repeated, and the point of showing several is that they disagree.
+   */
+  const seenAuthors = new Set<string>();
   const kept = items.filter((item) => {
     const link = item.url.split("?")[0]!;
-    if (seenLinks.has(link) || seenTitles.has(item.title)) return false;
+    if (seenLinks.has(link) || seenTitles.has(item.title) || seenAuthors.has(item.authorName)) return false;
     if (item.text.length < MIN_TEXT_LENGTH) return false;
     const haystack = `${item.title}\n${item.text}`.toLowerCase();
     if (!keywords.some((keyword) => haystack.includes(keyword.toLowerCase()))) return false;
     seenLinks.add(link);
     seenTitles.add(item.title);
+    seenAuthors.add(item.authorName);
     return true;
   });
   return kept.sort((a, b) => qualityScore(b) - qualityScore(a)).slice(0, limit);
