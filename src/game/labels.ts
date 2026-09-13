@@ -21,3 +21,17 @@ export function describeDecisionAction(decision: Decision, situation: Situation)
   if (decision.selectedActionKind === "CUSTOM_PLACEHOLDER") return decision.customAction;
   return situation.availableActions.find(({ id }) => id === decision.selectedActionId)?.label ?? "按自己的判断行动";
 }
+
+/**
+ * Zhihu's own way of writing a vote count: plain up to ten thousand, then 万
+ * to one decimal. The exact figure past that point tells the reader nothing —
+ * what matters is the order of magnitude.
+ */
+export function formatVoteCount(count: number): string {
+  if (!Number.isFinite(count) || count <= 0) return "0";
+  const whole = Math.floor(count);
+  if (whole < 10_000) return String(whole);
+  const wan = whole / 10_000;
+  // 12.0 万 reads as a rounding artefact; 12 万 is what a reader expects.
+  return `${wan.toFixed(1).replace(/\.0$/, "")} 万`;
+}

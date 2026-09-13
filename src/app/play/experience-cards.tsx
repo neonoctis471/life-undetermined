@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
+import { formatVoteCount } from "@/game/labels";
 import type { ExperienceResponseData, SupplementCard, ZhihuCard } from "@/zhihu/contracts";
 
 import type { Async } from "./screens";
@@ -52,6 +53,13 @@ function ZhihuExperience({ card, index }: { card: ZhihuCard; index: number }) {
           </span>
           <span className="muted">
             经验 {String(index + 1).padStart(2, "0")} · 来自知乎的{kind}
+            {/* Only when someone actually voted; 「0 人赞同」 is worse than silence. */}
+            {card.voteUpCount > 0 && (
+              <>
+                {" · "}
+                <b className="card-votes">{formatVoteCount(card.voteUpCount)} 人赞同</b>
+              </>
+            )}
           </span>
         </span>
       </div>
