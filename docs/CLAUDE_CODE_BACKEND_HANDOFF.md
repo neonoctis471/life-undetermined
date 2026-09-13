@@ -10,10 +10,10 @@
 
 当前主目录与实现代码不在同一个 Git 工作区：
 
-- 主目录：`C:\Users\21151\Documents\ChatGPT\知乎黑客松2`
+- 主目录：`<你的工作目录>\知乎黑客松2`
 - 主目录分支：`master`
 - `master` 当前提交：`0794d44`
-- 已完成第一批的工作区：`C:\Users\21151\Documents\ChatGPT\知乎黑客松2\.worktrees\backend-foundation`
+- 已完成第一批的工作区：`<你的工作目录>\知乎黑客松2\.worktrees\backend-foundation`
 - 正确开发分支：`codex/backend-foundation`
 - 第一批验收基线提交：`a3c2d1a`
 
@@ -580,7 +580,7 @@ docs/CLAUDE_CODE_BACKEND_HANDOFF.md
 作为本次任务的第一入口并完整阅读，再按文档列出的优先级阅读轻量后端设计、游戏设定、知乎 Skill 摘要和现有代码。
 
 特别注意：不要从 master@0794d44 开始。第一批已完成代码在
-C:\Users\21151\Documents\ChatGPT\知乎黑客松2\.worktrees\backend-foundation
+<你的工作目录>\知乎黑客松2\.worktrees\backend-foundation
 对应分支 codex/backend-foundation，第一批验收基线为 a3c2d1a。先确认分支和工作区，再运行现有质量命令。不要重做第一批，也不要恢复数据库、登录、分享或完整事件溯源。
 
 请依次完成：

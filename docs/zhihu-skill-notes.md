@@ -2,7 +2,7 @@
 
 ## 已读取资料
 
-- 官方压缩包：`C:\Users\21151\Pictures\素材\zhihu-cli-skill-0.5.3-beta.20260904115023.zip`
+- 官方压缩包：`<素材目录>\zhihu-cli-skill-0.5.3-beta.20260904115023.zip`
 - Skill：`zhihu`
 - Skill 版本：`0.5.3-beta.20260904115023`
 - CLI 最低版本：`0.5.0-beta.20260826061344`

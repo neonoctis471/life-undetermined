@@ -7,7 +7,7 @@
 **新版网页已在下列工作目录实现，不需要重新设计或重新生成：**
 
 ```text
-C:\Users\21151\Documents\ChatGPT\知乎黑客松2\.worktrees\backend-foundation
+<你的工作目录>\知乎黑客松2\.worktrees\backend-foundation
 ```
 
 | 项目 | 当前事实 |
@@ -20,7 +20,7 @@ C:\Users\21151\Documents\ChatGPT\知乎黑客松2\.worktrees\backend-foundation
 | 新版设计保存位置 | 上述目录的未提交工作区，包括未跟踪文件 |
 | 是否已部署新版 | 没有；本次完成的是本地实现与验证 |
 
-**父目录 `C:\Users\21151\Documents\ChatGPT\知乎黑客松2` 不是这个 Next.js 应用的启动目录。** 不要在父目录新建另一个应用，不要因为那里没有 `package.json` 就重新搭建项目。
+**父目录 `<你的工作目录>\知乎黑客松2` 不是这个 Next.js 应用的启动目录。** 不要在父目录新建另一个应用，不要因为那里没有 `package.json` 就重新搭建项目。
 
 **当前 HEAD 不包含本次完整前端改版。** 仅克隆仓库、切换这个分支，或只传一个普通 `git diff`，都会漏掉尚未提交的新组件和素材。优先直接使用上述工作目录。不要执行 `git reset --hard`、`git clean`，也不要用旧分支文件覆盖当前工作区。
 
@@ -52,7 +52,7 @@ C:\Users\21151\Documents\ChatGPT\知乎黑客松2\.worktrees\backend-foundation
 先进入应用目录并检查状态：
 
 ```powershell
-Set-Location -LiteralPath 'C:\Users\21151\Documents\ChatGPT\知乎黑客松2\.worktrees\backend-foundation'
+Set-Location -LiteralPath '<你的工作目录>\知乎黑客松2\.worktrees\backend-foundation'
 git status --short
 node --version
 npm --version
@@ -109,7 +109,7 @@ ZHIHU_ACCESS_SECRET
 - 参考提供图片的视觉风格，不使用这些参考图中的品牌文字、日文或其他文案。
 - 最后一张正方形图片是用户的 Icon，可以使用；现已接入。
 - 不擅自在网站上新增设计解释、开发注释、实现说明或无关提示文案。
-- 已按用户指定的 `eils-qianduan` 设计 skill 完成。若继续做视觉改动，本机 skill 位于 `C:\Users\21151\.codex\skills\eils-qianduan\SKILL.md`。
+- 已按用户指定的 `eils-qianduan` 设计 skill 完成。若继续做视觉改动，本机 skill 位于 `<用户目录>\.codex\skills\eils-qianduan\SKILL.md`。
 
 保留必要的真实产品状态，例如请求失败、AI 降级来源、知乎出处；“不加注释”不意味着隐藏错误或伪装内容来源。本交接文档是开发资料，不应渲染成网站内容。
 
@@ -333,7 +333,7 @@ Windows 受限执行环境曾导致 Vitest 扫描上级目录时出现 `Access i
 请接管并使用我们已经完成的“人生未定式”前端。
 
 实际项目目录：
-C:\Users\21151\Documents\ChatGPT\知乎黑客松2\.worktrees\backend-foundation
+<你的工作目录>\知乎黑客松2\.worktrees\backend-foundation
 
 请先完整阅读：
 docs/CLAUDE_CODE_FRONTEND_ADOPTION_HANDOFF.md

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>时间回溯后体会的多种人生 · Act 01–02 Preview</title>
+<style>
+:root{
+  --bg:#eff1ed;
+  --panel:rgba(247,248,244,.55);
+  --panel-strong:rgba(255,255,255,.64);
+  --ink:#141814;
+  --muted:#697269;
+  --line:rgba(20,24,20,.10);
+  --line-strong:rgba(20,24,20,.20);
+  --green:#8dff72;
+  --green-deep:#23411f;
+  --soft:#dfe3dd;
+  --shadow:0 20px 70px rgba(20,28,22,.08);
+  --header-h:88px;
+  --mx:0;
+  --my:0;
+  --sans:Inter,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --serif:"Noto Serif SC","Source Han Serif SC","Songti SC","STSong",serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  min-height:100vh;
+  color:var(--ink);
+  font-family:var(--sans);
+  background:
+    radial-gradient(circle at 18% 14%, rgba(255,255,255,.82), transparent 20%),
+    radial-gradient(circle at 84% 18%, rgba(255,255,255,.74), transparent 24%),
+    radial-gradient(circle at 66% 72%, rgba(255,255,255,.40), transparent 26%),
+    linear-gradient(180deg,#f6f7f4 0%, #eceeea 100%);
+  overflow-x:hidden;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg, transparent 0, transparent calc(50% - 1px), rgba(17,22,18,.07) calc(50% - 1px), rgba(17,22,18,.07) 50%, transparent 50%),
+    linear-gradient(180deg, rgba(255,255,255,.22), transparent 36%);
+  opacity:.7;
+}
+.app{position:relative;min-height:100vh}
+.header{
+  height:var(--header-h);
+  position:sticky;
+  top:0;
+  z-index:30;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 3.5vw;
+  border-bottom:1px solid var(--line);
+  background:rgba(244,245,241,.72);
+  backdrop-filter:blur(16px);
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{
+  width:18px;height:18px;border:1px solid rgba(20,24,20,.55);border-radius:50%;display:block;position:relative;transform:rotate(-18deg)
+}
+.brand-mark::before,.brand-mark::after{content:"";position:absolute;inset:2px 6px;border:1px solid rgba(20,24,20,.45);border-top:0;border-bottom:0;border-radius:50%}
+.brand strong{font-size:21px;font-family:var(--serif);font-weight:600;letter-spacing:-.02em}
+.header-meta{display:flex;align-items:center;gap:18px;font-size:12px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase}
+.stage{position:relative;min-height:calc(100vh - var(--header-h))}
+.visual{position:fixed;inset:var(--header-h) 0 0 0;z-index:0;pointer-events:none;overflow:hidden}
+.deco-haze,.deco-grid,.deco-rings,.deco-polys,.mesh-wrap{position:absolute;inset:0}
+.deco-haze{background:
+  radial-gradient(circle at 18% 55%, rgba(255,255,255,.44), transparent 19%),
+  radial-gradient(circle at 78% 18%, rgba(255,255,255,.48), transparent 15%),
+  radial-gradient(circle at 66% 76%, rgba(255,255,255,.20), transparent 18%);
+  filter:blur(10px)
+}
+.deco-grid::before,.deco-grid::after{content:"";position:absolute;inset:0}
+.deco-grid::before{background-image:linear-gradient(rgba(17,22,18,.032) 1px,transparent 1px),linear-gradient(90deg,rgba(17,22,18,.032) 1px,transparent 1px);background-size:84px 84px;opacity:.7;transform:translate(calc(var(--mx)*-14px),calc(var(--my)*-12px))}
+.deco-grid::after{background-image:linear-gradient(rgba(17,22,18,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(17,22,18,.02) 1px,transparent 1px);background-size:28px 28px;opacity:.35;transform:translate(calc(var(--mx)*10px),calc(var(--my)*8px))}
+.deco-rings{opacity:.95}
+.ring{position:absolute;border:1px solid rgba(16,20,16,.08);border-radius:50%}
+.ring-a{width:1100px;height:1100px;left:-270px;top:-120px;transform:translate(calc(var(--mx)*-46px),calc(var(--my)*-34px))}
+.ring-b{width:760px;height:760px;right:-100px;top:50px;transform:translate(calc(var(--mx)*26px),calc(var(--my)*-20px))}
+.ring-c{width:540px;height:540px;left:32%;bottom:-120px;transform:translate(calc(var(--mx)*12px),calc(var(--my)*24px))}
+.deco-polys svg{position:absolute;fill:none;stroke:rgba(18,24,18,.12);stroke-width:1;vector-effect:non-scaling-stroke}
+.poly-a{width:260px;height:260px;left:4%;top:10%;transform:translate(calc(var(--mx)*-22px),calc(var(--my)*-16px)) rotate(8deg)}
+.poly-b{width:320px;height:320px;right:8%;top:24%;transform:translate(calc(var(--mx)*18px),calc(var(--my)*-12px)) rotate(-11deg)}
+.poly-c{width:210px;height:210px;left:14%;bottom:12%;transform:translate(calc(var(--mx)*-16px),calc(var(--my)*14px)) rotate(18deg)}
+.poly-d{width:280px;height:280px;right:20%;bottom:10%;transform:translate(calc(var(--mx)*14px),calc(var(--my)*18px)) rotate(-14deg)}
+.mesh-wrap{display:flex;align-items:center;justify-content:flex-start;padding-left:5vw;transform:translate(calc(var(--mx)*8px),calc(var(--my)*10px))}
+.mesh{width:min(48vw,760px);height:auto;max-height:72vh;opacity:.52;filter:drop-shadow(0 24px 40px rgba(20,28,22,.05))}
+.progress-line{position:fixed;left:0;bottom:0;height:2px;background:linear-gradient(90deg,var(--green),#496b45);z-index:35;box-shadow:0 0 18px rgba(128,255,100,.35)}
+.content{
+  position:relative;
+  z-index:4;
+  padding:4.8vh 3.6vw 8vh;
+}
+.screen{animation:enter .55s cubic-bezier(.22,1,.36,1);max-width:1500px;margin:0 auto}
+@keyframes enter{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.eyebrow{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase;margin-bottom:16px}
+.eyebrow span{color:#58754d;font-weight:600}
+.eyebrow i{width:36px;height:1px;background:var(--line-strong);display:block}
+h1{font-family:var(--serif);font-size:clamp(56px,5.8vw,110px);line-height:.98;letter-spacing:-.06em;margin:0 0 44px;max-width:920px}
+.section{margin-bottom:34px}
+.section-head{margin-bottom:16px}
+.section-head strong{font-family:var(--serif);font-size:28px;font-weight:500;letter-spacing:-.03em}
+.options{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;width:100%}
+.opt{
+  width:100%;min-height:126px;border:1px solid var(--line-strong);background:rgba(255,255,255,.30);box-shadow:0 10px 30px rgba(20,28,22,.04);
+  display:grid;grid-template-columns:40px 1fr 22px;align-items:center;gap:18px;padding:0 22px;
+  font-size:clamp(24px,1.55vw,30px);font-weight:650;color:var(--ink);text-align:left;cursor:pointer;transition:.24s ease;
+  backdrop-filter:blur(8px)
+}
+.opt .num{font-size:11px;color:rgba(20,24,20,.34);align-self:flex-start;padding-top:22px;letter-spacing:.18em}
+.opt .dot{width:10px;height:10px;border-radius:50%;border:1px solid rgba(20,24,20,.45);display:block;justify-self:end}
+.opt:hover{transform:translateY(-3px);background:rgba(255,255,255,.60);border-color:rgba(20,24,20,.36);box-shadow:var(--shadow)}
+.opt.active{background:rgba(255,255,255,.9);border-color:rgba(20,24,20,.74);box-shadow:0 18px 52px rgba(20,28,22,.10)}
+.opt.active .dot{background:var(--green);border-color:#365132;box-shadow:0 0 0 6px rgba(141,255,114,.13)}
+.priorities{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.pill{
+  min-height:82px;padding:0 20px;border:1px solid var(--line-strong);background:rgba(255,255,255,.26);font-size:19px;font-weight:600;text-align:left;color:var(--ink);cursor:pointer;transition:.22s ease;backdrop-filter:blur(8px)
+}
+.pill:hover{background:rgba(255,255,255,.55);transform:translateY(-2px)}
+.pill.active{background:#171c18;color:#f8fbf7;border-color:#171c18;box-shadow:0 16px 36px rgba(20,28,22,.16)}
+.textarea-frame{border:1px solid var(--line-strong);background:rgba(255,255,255,.34);backdrop-filter:blur(8px)}
+.textarea-frame textarea,.custom textarea{
+  width:100%;border:0;outline:0;background:transparent;resize:vertical;min-height:190px;padding:26px 28px;color:var(--ink);font:400 18px/1.9 var(--sans)
+}
+.textarea-frame textarea::placeholder,.custom textarea::placeholder{color:rgba(20,24,20,.36)}
+.data-panel{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:32px;align-items:end;margin:42px 0 28px;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.data-copy h2{font-family:var(--serif);font-size:34px;line-height:1.08;letter-spacing:-.04em;margin:0}
+.data-copy span{display:none}
+.data-rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.data-row{min-height:112px;border:1px solid var(--line);padding:18px 18px 14px;background:rgba(255,255,255,.18);display:grid;grid-template-rows:auto 1fr auto}
+.data-row span{font-size:11px;color:rgba(20,24,20,.34);letter-spacing:.18em}
+.data-row strong{font-size:20px;font-weight:650;line-height:1.3;align-self:center}
+.data-row em{font-style:normal;font-size:30px;color:rgba(20,24,20,.42)}
+.actionbar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-top:30px}
+.selection{display:flex;align-items:center;gap:12px;min-height:66px;padding:0 22px;border:1px solid var(--line);background:rgba(255,255,255,.24);min-width:min(100%,560px);backdrop-filter:blur(8px)}
+.selection strong{font-size:16px;line-height:1.5;font-weight:600}
+.primary,.secondary{
+  min-height:64px;padding:0 34px;border:1px solid var(--line-strong);background:rgba(255,255,255,.48);color:var(--ink);font:600 14px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:.2s ease
+}
+.primary:hover,.secondary:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.primary{background:#171c18;color:#f7fbf6;border-color:#171c18}
+.primary b{font-size:18px;font-weight:500;margin-left:10px}
+.primary:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.secondary{background:rgba(255,255,255,.28)}
+.interpret-grid{display:grid;grid-template-columns:1.05fr .95fr;border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong);background:rgba(255,255,255,.16)}
+.summary{padding:28px 34px 28px 0;border-right:1px solid var(--line)}
+.summary>span,.group>span,.fact-head span{display:block;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.summary blockquote{margin:0 0 28px;font-family:var(--serif);font-size:34px;line-height:1.45;letter-spacing:-.04em}
+.ai-summary p{margin:0;font-size:18px;line-height:1.85;color:var(--ink)}
+.groups{padding:28px 0 28px 30px}
+.group{padding:0 0 18px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.group:last-child{margin-bottom:0;border-bottom:0;padding-bottom:0}
+.group p{margin:0 0 10px;font-size:17px;line-height:1.7}
+.situation-pair{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.situation-card{min-height:470px;border:1px solid var(--line-strong);background:rgba(255,255,255,.26);padding:34px;display:flex;flex-direction:column;align-items:flex-start;text-align:left;cursor:pointer;transition:.24s ease;backdrop-filter:blur(10px)}
+.situation-card:hover{transform:translateY(-4px);background:rgba(255,255,255,.62);box-shadow:var(--shadow)}
+.card-top{display:flex;align-items:center;gap:16px;font-size:15px;color:var(--ink)}
+.card-top strong{font-weight:700}
+.card-top i{width:34px;height:1px;background:var(--line-strong);display:block}
+.situation-card h2{font-family:var(--serif);font-size:clamp(42px,3.3vw,64px);line-height:1.08;letter-spacing:-.05em;margin:54px 0 24px}
+.situation-card p{margin:0;font-size:18px;line-height:1.9;max-width:680px}
+.dims{display:flex;flex-wrap:wrap;gap:10px;padding-top:28px}
+.dims span{padding:10px 14px;border:1px solid var(--line);font-size:12px;letter-spacing:.08em;background:rgba(255,255,255,.34)}
+.card-foot{margin-top:auto;padding-top:26px;width:100%;display:flex;justify-content:flex-end}
+.card-foot strong{font-size:16px;letter-spacing:.06em}
+.situation-title{font-size:clamp(52px,5.2vw,92px)}
+.time-mark{display:flex;align-items:center;gap:18px;font-size:12px;color:var(--muted);margin-bottom:24px;letter-spacing:.14em;text-transform:uppercase}
+.time-mark i{width:36px;height:1px;background:var(--line-strong)}
+.scene{padding:24px 0 20px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.scene>p{font-family:var(--serif);font-size:30px;line-height:1.8;letter-spacing:-.02em;margin:0;max-width:1100px}
+.experience{margin-top:26px;width:min(100%,860px);min-height:88px;padding:0 28px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line-strong);background:rgba(255,255,255,.36);cursor:pointer;transition:.22s ease;backdrop-filter:blur(10px)}
+.experience:hover{transform:translateY(-2px);box-shadow:var(--shadow);background:rgba(255,255,255,.66)}
+.experience strong{font-size:17px;font-weight:650;line-height:1.5;text-align:left}
+.experience span{font-size:20px}
+.action-options{display:grid;gap:14px;margin-top:12px}
+.action-opt{width:100%;min-height:110px;display:grid;grid-template-columns:48px 1fr 24px;align-items:center;gap:20px;padding:0 24px;border:1px solid var(--line-strong);background:rgba(255,255,255,.26);cursor:pointer;text-align:left;transition:.22s ease;backdrop-filter:blur(10px)}
+.action-opt span{font-size:11px;color:rgba(20,24,20,.34);letter-spacing:.18em}
+.action-opt strong{font-size:23px;font-weight:650;line-height:1.4}
+.action-opt i{width:10px;height:10px;border-radius:50%;border:1px solid rgba(20,24,20,.40);display:block;justify-self:end}
+.action-opt:hover{background:rgba(255,255,255,.62);transform:translateX(3px);box-shadow:var(--shadow)}
+.action-opt.active{background:#171c18;color:#f6fbf5;border-color:#171c18}
+.action-opt.active span{color:rgba(246,251,245,.58)}
+.action-opt.active i{background:var(--green);border-color:#365132}
+.custom{margin-top:16px;border:1px solid var(--line);background:rgba(255,255,255,.18);backdrop-filter:blur(8px)}
+.custom-head{padding:18px 22px;border-bottom:1px solid var(--line)}
+.custom-head strong{font-size:18px;font-weight:650}
+.custom textarea{min-height:150px;padding:22px 24px 24px}
+.outcome-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:32px;align-items:start}
+.outcome-story{border-top:1px solid var(--line);padding-top:28px}
+.outcome-story p{font-family:var(--serif);font-size:28px;line-height:1.85;letter-spacing:-.02em;margin:0}
+.fact-record{border:1px solid var(--line-strong);background:rgba(255,255,255,.30);padding:22px 26px;backdrop-filter:blur(10px)}
+.fact-row{display:grid;grid-template-columns:24px 1fr auto;gap:14px;align-items:start;padding:18px 0;border-bottom:1px solid var(--line)}
+.fact-row:last-child{border-bottom:0;padding-bottom:0}
+.fact-row span{font-size:18px;color:#486245;line-height:1.2}
+.fact-row p{margin:0;font-size:16px;line-height:1.65}
+.fact-row small{font-size:10px;color:rgba(20,24,20,.34);letter-spacing:.18em}
+.unresolved{grid-column:1/-1;padding-top:4px}
+.unresolved strong{display:block;font-size:16px;margin-bottom:8px}
+.unresolved p{margin:0 0 8px;font-size:14px;color:var(--muted);line-height:1.7}
+.complete{display:flex;align-items:center;gap:14px;margin-top:32px;padding-top:24px;border-top:1px solid var(--line)}
+.pulse{width:14px;height:14px;border-radius:50%;background:var(--green);box-shadow:0 0 0 8px rgba(141,255,114,.12),0 0 18px rgba(141,255,114,.28)}
+.drawer-backdrop{position:fixed;inset:0;background:rgba(11,14,12,.24);backdrop-filter:blur(10px);z-index:80;display:flex;justify-content:flex-end}
+.drawer{width:min(560px,92vw);height:100%;background:#f3f5f1;border-left:1px solid var(--line-strong);padding:26px 26px 32px;display:flex;flex-direction:column}
+.drawer header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.drawer header h2{margin:0;font-family:var(--serif);font-size:42px;line-height:1.05;letter-spacing:-.04em}
+.drawer header button{width:44px;height:44px;border:1px solid var(--line);background:transparent;font-size:26px;cursor:pointer}
+.source-placeholder{border-top:1px solid var(--line);padding-top:22px}
+.source-placeholder h3{margin:0;font-size:26px;font-family:var(--serif);line-height:1.4;letter-spacing:-.03em}
+.footer{display:none}
+@media (max-width:1280px){
+  h1{font-size:clamp(50px,5vw,86px)}
+  .options{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .situation-card{min-height:420px}
+}
+@media (max-width:980px){
+  :root{--header-h:74px}
+  .header{padding:0 22px}
+  .brand strong{font-size:18px}
+  .header-meta{gap:12px;font-size:11px;letter-spacing:.12em}
+  .mesh-wrap{justify-content:center;padding-left:0}
+  .mesh{width:min(92vw,650px);opacity:.35}
+  .ring-a{left:-340px;top:-120px}.ring-b{right:-200px;top:120px}.ring-c{left:18%;bottom:-170px}
+  .content{padding:34px 22px 80px}
+  .options,.priorities,.data-rows{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .interpret-grid,.outcome-grid,.situation-pair{grid-template-columns:1fr}
+  .summary{padding:20px 0;border-right:0;border-bottom:1px solid var(--line)}
+  .groups{padding:20px 0 0}
+  .data-panel{grid-template-columns:1fr}
+  .scene>p{font-size:25px}
+  .actionbar{align-items:stretch}.primary,.secondary{width:100%;justify-content:center}
+  .selection{min-width:0;width:100%}
+}
+@media (max-width:640px){
+  h1{font-size:clamp(42px,12vw,62px);margin-bottom:32px}
+  .eyebrow{font-size:11px;gap:10px}
+  .eyebrow i{width:22px}
+  .options,.priorities,.data-rows{grid-template-columns:1fr}
+  .opt{min-height:100px;font-size:22px;padding:0 18px}
+  .pill{min-height:72px;font-size:18px}
+  .data-copy h2{font-size:28px}
+  .situation-card{padding:24px;min-height:340px}
+  .situation-card h2{font-size:34px;margin:34px 0 18px}
+  .situation-card p,.ai-summary p,.group p,.fact-row p{font-size:15px}
+  .scene>p{font-size:22px}
+  .action-opt{min-height:98px;padding:0 18px;grid-template-columns:34px 1fr 20px}
+  .action-opt strong{font-size:19px}
+  .drawer header h2{font-size:34px}
+}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="header">
+  <div class="brand"><span class="brand-mark"></span><div><strong>时间回溯后体会的多种人生</strong></div></div>
+  <div class="header-meta"><span id="actMeta">第一幕</span><span id="timeMeta">毕业当天</span><span id="screenMeta">01/05</span></div>
+</header>
+<div class="stage">
+  <aside class="visual" aria-hidden="true">
+    <div class="deco-haze"></div>
+    <div class="deco-grid"></div>
+    <div class="deco-rings">
+      <span class="ring ring-a"></span>
+      <span class="ring ring-b"></span>
+      <span class="ring ring-c"></span>
+    </div>
+    <div class="deco-polys">
+      <svg class="poly-a" viewBox="0 0 300 300"><polygon points="150,18 279,93 279,207 150,282 21,207 21,93"></polygon><polygon points="150,54 248,110 248,190 150,246 52,190 52,110"></polygon></svg>
+      <svg class="poly-b" viewBox="0 0 320 320"><polygon points="160,24 278,82 296,208 198,292 74,268 28,146 74,52"></polygon><polygon points="160,64 242,104 254,192 186,246 98,228 64,144 98,86"></polygon></svg>
+      <svg class="poly-c" viewBox="0 0 240 240"><polygon points="120,18 206,70 222,152 164,222 76,222 18,152 34,70"></polygon></svg>
+      <svg class="poly-d" viewBox="0 0 280 280"><polygon points="140,24 240,84 256,196 140,256 36,196 48,84"></polygon><polygon points="140,52 218,98 228,182 140,228 62,182 74,98"></polygon></svg>
+    </div>
+    <div class="mesh-wrap"><svg class="mesh" id="mesh" viewBox="0 0 800 600"></svg></div>
+    <div class="progress-line" id="progressLine"></div>
+  </aside>
+  <section class="content" id="content"></section>
+</div>
+
+</div>
+<div id="drawerRoot"></div>
+<script>
+const plansAll=['找工作','跨专业求职','考研','考公考编','留学','学技能','自由职业','做自媒体','创业','回家发展','帮家里经营','照顾家人','Gap','兼职探索','其他'];
+const priorityAll=['尽快有收入','稳定感','继续学习','保留兴趣','时间自由','家庭责任','控制风险','换一个城市'];
+const state={screen:1,plans:[],priorities:[],freeText:'',interpretation:null,selectedSituation:null,selectedOption:null,customAction:'',outcome:null};
+const situations=[
+ {id:'s1',type:'progressive',title:'计划开始得到一点真实回应',summary:'你已经真正开始行动。虽然事情远没有变成结果，但最初的一点反馈让原本模糊的计划第一次有了可以继续观察的方向。',dims:['时间安排','能力积累','现实反馈'],newInfo:'最初的尝试开始产生可观察的信息',time:'毕业后约 3 个月',actions:[['继续保持现在的低成本尝试','保持节奏'],['把有限时间集中到最有效的一件事','重新分配时间'],['先整理反馈，再决定要不要加投入','先确认信息']]},
+ {id:'s2',type:'unexpected',title:'现实把原来的安排挤出了一道缝',summary:'你原本留给计划的时间开始被其他责任和现实安排打断。事情并没有彻底失败，但原来的节奏已经很难原样维持。',dims:['现实责任','时间冲突','计划调整'],newInfo:'原来的时间安排不再完全成立',time:'毕业后约 4 个月',actions:[['先处理眼前责任，把计划稍微往后放','调整节奏'],['和相关的人重新协商一段固定时间','重新协商'],['缩小目标，只保留最小可持续行动','缩小范围']]}
+];
+function q(s){return document.querySelector(s)}
+function esc(s=''){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function toggle(arr,item){const i=arr.indexOf(item);i>=0?arr.splice(i,1):arr.push(item)}
+function setScreen(n){state.screen=n;window.scrollTo({top:0,behavior:'smooth'});render()}
+function updateChrome(){const meta={1:['第一幕','毕业当天','01/05','FORMATION','ACT 01','想法还没有变成路线。','你的选择会改变这个结构的密度。','第一幕 / 毕业当天',18],2:['第一幕','毕业当天','02/05','FORMATION','ACT 01','先确认，再让生活继续。','AI 只整理你已经表达过的内容。','第一幕 / 确认当前计划',36],3:['第二幕','毕业后半年以内','03/05','REALITY FIELD','ACT 02','现实开始出现分岔。','不是好坏结局，而是两种可能先进入你的生活。','第二幕 / 生活开始展开',55],4:['第二幕','毕业后半年以内','04/05','REALITY FIELD','ACT 02','生活从抽象变成具体。','真正的情境，会让每个计划付出不同成本。','第二幕 / 具体生活',75],5:['第二幕','毕业后半年以内','05/05','REALITY FIELD','ACT 02','一次回应，开始留下事实。','结果不评分，只记录真正进入人生的变化。','第二幕 / Decision → Facts',100]}[state.screen];
+ q('#actMeta').textContent=meta[0];q('#timeMeta').textContent=meta[1];q('#screenMeta').textContent=meta[2];q('#progressLine').style.width=meta[8]+'%';drawMesh();}
+function drawMesh(){const svg=q('#mesh');svg.innerHTML='';const reality=state.screen>=3;const intensity=Math.min(1,(state.plans.length+state.priorities.length)/8+(state.freeText.length?0.2:0));for(let j=0;j<26;j++){let d='';for(let i=0;i<=52;i++){const t=i/52*Math.PI*2;const phase=j/26*Math.PI*2;let r=145+35*Math.sin(3*t+phase*.55)+20*Math.cos(2*t-phase);if(reality)r+=32*Math.sin(t*2+(state.screen-3)*.8)*(j/26-.5);else r*=.88+.2*intensity;const x=400+Math.cos(t)*(r+38*Math.sin(phase+t*.5));const y=300+Math.sin(t)*(r*.58+24*Math.cos(phase-t));d+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' ';}const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',j===18&&reality?'#75d95e':'rgba(21,26,22,'+(0.12+j/26*.35)+')');p.setAttribute('stroke-width',j===18&&reality?'2':'0.8');svg.appendChild(p)}svg.style.transform=`rotate(${reality?state.screen*1.8:-3+intensity*5}deg) scale(${reality?1.05:0.96+intensity*.08})`}
+function render(){updateChrome();const c=q('#content');if(state.screen===1)c.innerHTML=screen1();if(state.screen===2)c.innerHTML=screen2();if(state.screen===3)c.innerHTML=screen3();if(state.screen===4)c.innerHTML=screen4();if(state.screen===5)c.innerHTML=screen5();bind()}
+function screen1(){const summary=state.plans.length?state.plans.slice(0,4).join(' + '):'还没有选择';return `<div class="screen"><div class="eyebrow"><span>01</span><i></i>毕业了，你准备怎样开始自己的生活？</div><h1>先把想法，\n放进生活里。</h1>
+<div class="section"><div class="section-head"><strong>我想做的事</strong></div><div class="options">${plansAll.map((x,i)=>`<button class="opt ${state.plans.includes(x)?'active':''}" data-plan="${x}"><span class="num">${String(i+1).padStart(2,'0')}</span>${x}<i class="dot"></i></button>`).join('')}</div></div>
+<div class="section"><div class="section-head"><strong>我真正看重什么</strong></div><div class="priorities">${priorityAll.map(x=>`<button class="pill ${state.priorities.includes(x)?'active':''}" data-priority="${x}">${x}</button>`).join('')}</div></div>
+<div class="section"><div class="section-head"><strong>我真正的想法</strong></div><div class="textarea-frame"><textarea id="freeText" maxlength="2000" placeholder="比如：我准备先回家帮父母开店，同时试试做短视频。如果几个月都没有进展，再考虑去找工作……">${esc(state.freeText)}</textarea></div></div>
+<aside class="data-panel"><div class="data-copy"><span>REFERENCE</span><h2>看看大家毕业后<br>都去哪了</h2></div><div class="data-rows">${['就业','升学','灵活就业 / 自主选择','其他去向'].map((x,i)=>`<div class="data-row"><span>${String(i+1).padStart(2,'0')}</span><strong>${x}</strong><em>—</em></div>`).join('')}</div></aside>
+<div class="actionbar"><div class="selection"><strong>${summary}</strong></div><button class="primary" id="interpretBtn" ${!state.plans.length&&!state.freeText.trim()?'disabled':''}>确认，迈出第一步 <b>↗</b></button></div></div>`}
+function makeInterpretation(){const p=state.plans.length?state.plans:['继续探索'];const pr=state.priorities.length?state.priorities:['还没有明确排序'];const first=p.slice(0,2).map(x=>'先为「'+x+'」安排一个可以在两周内开始的小行动');return {summary:state.freeText.trim()||`毕业后先从 ${p.join('、')} 开始，不急着把其中任何一个方向提前写成结果。`,parallelPlans:p,priorities:pr,firstActions:first,unknown:['具体可投入时间还没有完全确定','经济缓冲和外部支持暂未说明']}}
+function screen2(){const x=state.interpretation||makeInterpretation();return `<div class="screen"><div class="eyebrow"><span>02</span><i></i>第一幕 · 确认当前计划</div><h1>我理解的是\n这样，对吗？</h1><div class="interpret-grid"><section class="summary"><span>你的原话</span><blockquote>${esc(state.freeText||'我还没有把所有想法说清楚，但已经选出了想尝试的方向。')}</blockquote><div class="ai-summary"><p>${esc(x.summary)}</p></div></section><div class="groups">${group('正在并行的计划',x.parallelPlans)}${group('现在最在意',x.priorities)}${group('先做的第一步',x.firstActions,true)}${group('还没有确定',x.unknown)}</div></div><div class="actionbar"><button class="secondary" id="back1">← 返回修改</button><button class="primary" id="confirmAct1">对，就是这样 <b>↗</b></button></div></div>`}
+function group(label,arr,num=false){return `<section class="group"><span>${label}</span>${arr.map((x,i)=>`<p>${num?String(i+1).padStart(2,'0')+'  ':''}${esc(x)}</p>`).join('')}</section>`}
+function screen3(){return `<div class="screen"><div class="eyebrow"><span>03</span><i></i>第二幕 · 生活开始展开</div><h1>现实开始，\n给计划加上重量。</h1><div class="situation-pair">${situations.map((s,i)=>`<button class="situation-card" data-situation="${s.id}"><div class="card-top"><strong>${s.type==='progressive'?'顺势发展的可能':'意料之外的变化'}</strong><i></i></div><h2>${s.title}</h2><p>${s.summary}</p><div class="dims">${s.dims.map(d=>`<span>${d}</span>`).join('')}</div><div class="card-foot"><strong>进入这种可能 ↗</strong></div></button>`).join('')}</div></div>`}
+function screen4(){const s=state.selectedSituation||situations[0];return `<div class="screen"><div class="eyebrow"><span>04</span><i></i>具体生活 · ${s.type==='progressive'?'顺势发展的可能':'意料之外的变化'}</div><h1 class="situation-title">${s.title}</h1><div class="time-mark"><span>${s.time}</span><i></i></div><article class="scene"><p>${s.summary}</p></article><button class="experience" id="openExperience"><div><strong>看看别人遇到类似情况时，真正做过什么</strong></div><span>↗</span></button><div class="actionbar"><button class="secondary" id="back3">← 看另一种可能</button><button class="primary" id="goDecision">我遇到了，准备回应 <b>↗</b></button></div></div>`}
+function screen5(){const s=state.selectedSituation||situations[0];if(state.outcome)return outcomeHTML();return `<div class="screen"><div class="eyebrow"><span>05</span><i></i>第二幕 · 你准备怎么办？</div><h1>现在，轮到你\n回应现实。</h1><div class="action-options">${s.actions.map((a,i)=>`<button class="action-opt ${state.selectedOption===i?'active':''}" data-action="${i}"><span>${String(i+1).padStart(2,'0')}</span><strong>${a[0]}</strong><i></i></button>`).join('')}</div><div class="custom"><div class="custom-head"><strong>我想自己决定</strong></div><textarea id="customAction" maxlength="1000" placeholder="写下你真正会做的事情。">${esc(state.customAction)}</textarea></div><div class="actionbar"><button class="secondary" id="back4">← 回到情境</button><button class="primary" id="resolveBtn" ${state.selectedOption===null&&!state.customAction.trim()?'disabled':''}>就这样做 <b>↗</b></button></div></div>`}
+function outcomeHTML(){const o=state.outcome;return `<div class="screen"><div class="eyebrow"><span>05</span><i></i>第二幕 · Outcome → Facts</div><h1>这一次选择，\n留下了什么？</h1><div class="outcome-grid"><section class="outcome-story"><p>${o.story}</p></section><section class="fact-record"><div class="fact-head"><span>已经发生</span></div>${o.facts.map((f,i)=>`<div class="fact-row"><span>✓</span><p>${f}</p><small>${String(i+1).padStart(2,'0')}</small></div>`).join('')}</section><section class="unresolved"><strong>仍然没有答案</strong>${o.unresolved.map(x=>`<p>${x}</p>`).join('')}</section></div><div class="complete"><span class="pulse"></span><div><strong>第二幕结束。</strong></div></div></div>`}
+function bind(){document.querySelectorAll('[data-plan]').forEach(b=>b.onclick=()=>{toggle(state.plans,b.dataset.plan);render()});document.querySelectorAll('[data-priority]').forEach(b=>b.onclick=()=>{toggle(state.priorities,b.dataset.priority);render()});const ft=q('#freeText');if(ft)ft.oninput=e=>{state.freeText=e.target.value;drawMesh()};const ib=q('#interpretBtn');if(ib)ib.onclick=()=>{state.interpretation=makeInterpretation();setScreen(2)};const back1=q('#back1');if(back1)back1.onclick=()=>setScreen(1);const c1=q('#confirmAct1');if(c1)c1.onclick=()=>{setTimeout(()=>setScreen(3),420)};document.querySelectorAll('[data-situation]').forEach(b=>b.onclick=()=>{state.selectedSituation=situations.find(s=>s.id===b.dataset.situation);state.selectedOption=null;state.customAction='';state.outcome=null;setScreen(4)});const back3=q('#back3');if(back3)back3.onclick=()=>setScreen(3);const exp=q('#openExperience');if(exp)exp.onclick=openDrawer;const gd=q('#goDecision');if(gd)gd.onclick=()=>setScreen(5);document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{state.selectedOption=Number(b.dataset.action);state.customAction='';render()});const ca=q('#customAction');if(ca)ca.oninput=e=>{state.customAction=e.target.value;state.selectedOption=null;q('#resolveBtn').disabled=!state.customAction.trim()};const back4=q('#back4');if(back4)back4.onclick=()=>setScreen(4);const rb=q('#resolveBtn');if(rb)rb.onclick=resolveOutcome}
+function resolveOutcome(){const s=state.selectedSituation||situations[0];const action=state.customAction.trim()||(s.actions[state.selectedOption||0]?.[0]);state.outcome={story:`你没有立刻得到一个“人生答案”，而是按照「${action}」真正做了一次回应。接下来几周，你看见了这个安排能够维持的部分，也看见了原计划需要重新调整的地方。`,facts:[`已经实际采取行动：${action}`,s.type==='progressive'?'第一次把初步反馈纳入后续安排':'第一次因为现实冲突主动调整原计划',`这条计划仍在继续，但结果还没有被提前写死`],unresolved:['新的节奏能不能长期维持','接下来的反馈会不会改变投入方式']};render()}
+function openDrawer(){q('#drawerRoot').innerHTML=`<div class="drawer-backdrop" id="drawerBg"><aside class="drawer" role="dialog" aria-modal="true"><header><div><h2>别人真正走过的路</h2></div><button id="closeDrawer">×</button></header><div class="source-placeholder"><h3>真实经验将在正式后端连接后显示</h3></div></aside></div>`;q('#closeDrawer').onclick=closeDrawer;q('#drawerBg').onclick=e=>{if(e.target.id==='drawerBg')closeDrawer()};document.addEventListener('keydown',escDrawer)}
+function escDrawer(e){if(e.key==='Escape')closeDrawer()}function closeDrawer(){q('#drawerRoot').innerHTML='';document.removeEventListener('keydown',escDrawer)}
+window.addEventListener('pointermove',e=>{document.documentElement.style.setProperty('--mx',((e.clientX/window.innerWidth)-0.5).toFixed(3));document.documentElement.style.setProperty('--my',((e.clientY/window.innerHeight)-0.5).toFixed(3))},{passive:true});
+window.addEventListener('mouseleave',()=>{document.documentElement.style.setProperty('--mx',0);document.documentElement.style.setProperty('--my',0)});
+render();
+</script>
+</body>
+</html>
