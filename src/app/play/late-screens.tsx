@@ -9,6 +9,7 @@ import { forkPoints, type ForkPoint } from "@/game/flow";
 import { DISPLAY } from "./copy";
 import { ForkMark } from "./brand";
 import { GenerationBadge, ScreenHead, TimeAdvance, type TimeStep } from "./screens";
+import { ZhihuSignIn } from "./zhihu-signin";
 
 type Badge = { generation: "AI" | "FALLBACK"; elapsedMs?: number };
 
@@ -281,6 +282,7 @@ export function EndingView({ onRestart }: { onRestart(): void }) {
           重新开始
         </button>
       </div>
+      <ZhihuSignIn placement="ending" />
     </section>
   );
 }
