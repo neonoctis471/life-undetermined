@@ -441,7 +441,6 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
 /* Zhihu sign-in: the way into the game on the hero, a thank-you at the ending. */
 .zhihu-signin { margin-top: 26px; max-width: 420px; }
 .zhihu-gate .muted { margin-top: 14px; max-width: 430px; font-size: 12px; line-height: 1.7; text-wrap: pretty; }
-.zhihu-gate .link-button { margin-top: 4px; font-size: 12px; }
 /* The gate's button is a link, so it needs what the button element gets for free. */
 .hero-action a.btn { text-decoration: none; }
 .zhihu-signin .link-button { font-size: 13px; gap: 6px; }
