@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useEffect, useRef, type CSSProperties, type PointerEvent } from "react";
 
+import { ArrowUpRight } from "./glyphs";
+
 const STOPS = ["毕业那天", "第 8 天", "第 7 个月", "第 4 年", "五年以后", "两段人生"];
 
 export function JourneyTrack({ current, hovered, waiting }: { current: number; hovered: number; waiting: boolean }) {
@@ -48,7 +50,7 @@ export function HeroArtwork() {
         </svg>
         <div className="art-bottomline"><span>一种选择</span><span>另一种可能</span></div>
       </div>
-      <div className="art-caption"><span>五年。</span><span>再走一遍。<b>↗</b></span></div>
+      <div className="art-caption"><span>五年。</span><span>再走一遍。<b><ArrowUpRight /></b></span></div>
     </div>
   );
 }

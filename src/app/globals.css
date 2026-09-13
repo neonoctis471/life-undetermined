@@ -450,3 +450,6 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
 /* The ending is centred, so this entry has to be too. */
 .zhihu-signin.ending { margin: 30px auto 0; text-align: center; }
 .zhihu-signin.ending .link-button { border-bottom-color: var(--blue); }
+
+/* Drawn arrows stand in for ↗, which iOS renders as a colour emoji tile. */
+.glyph-arrow { display: inline-block; vertical-align: -.1em; }

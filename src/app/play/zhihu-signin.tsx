@@ -2,6 +2,8 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
+import { ArrowUpRight } from "./glyphs";
+
 /*
  * Signing in with Zhihu is what opens the game: the platform counts a work's
  * players by OAuth authorisations, so a play that nobody authorised is a play
@@ -156,7 +158,7 @@ export function ZhihuGate({ onStart, startLabel }: { onStart(): void; startLabel
         <div className="hero-action">
           <button className="btn btn-primary" onClick={onStart}>
             {startLabel}
-            <span aria-hidden="true">↗</span>
+            <span aria-hidden="true"><ArrowUpRight /></span>
           </button>
           <span className="hero-duration">约 8–10 分钟</span>
         </div>
@@ -170,7 +172,7 @@ export function ZhihuGate({ onStart, startLabel }: { onStart(): void; startLabel
           // Sign-in is not being required: offer it, do not insist on it.
           <div className="zhihu-signin">
             <a className="link-button" href="/api/v1/zhihu/oauth/start" onClick={markAttempt}>
-              用知乎账号登录，支持这个作品 <span aria-hidden="true">↗</span>
+              用知乎账号登录，支持这个作品 <ArrowUpRight />
             </a>
             <p className="muted">{note(status.outcome)}</p>
           </div>
@@ -184,7 +186,7 @@ export function ZhihuGate({ onStart, startLabel }: { onStart(): void; startLabel
       <div className="hero-action">
         <a className="btn btn-primary" href="/api/v1/zhihu/oauth/start" onClick={markAttempt}>
           用知乎账号登录，开始
-          <span aria-hidden="true">↗</span>
+          <span aria-hidden="true"><ArrowUpRight /></span>
         </a>
         <span className="hero-duration">约 8–10 分钟</span>
       </div>
@@ -217,7 +219,7 @@ export function ZhihuSignIn() {
   return (
     <div className="zhihu-signin ending">
       <a className="link-button" href="/api/v1/zhihu/oauth/start">
-        用知乎账号登录，支持这个作品 <span aria-hidden="true">↗</span>
+        用知乎账号登录，支持这个作品 <ArrowUpRight />
       </a>
       <p className="muted">
         走完了两条路，如果这一趟对你有用，登录一下就是最好的支持。不读取也不保存你的任何知乎数据。

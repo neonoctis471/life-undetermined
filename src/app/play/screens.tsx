@@ -13,6 +13,7 @@ import { REFLECTION_LABELS, describeDecisionAction } from "@/game/labels";
 
 import type { Timed } from "./ai-client";
 import { DISPLAY } from "./copy";
+import { ArrowUpRight } from "./glyphs";
 import { HeroArtwork } from "./journey";
 import type { Side } from "./field/target";
 import { PLAN_OPTIONS, VALUE_OPTIONS } from "./plans";
@@ -69,7 +70,7 @@ export function Hero({ onStart }: { onStart(): void }) {
       <div className="hero-copy">
         <p className="eyebrow"><span className="chapter-chip">00</span>{DISPLAY.eyebrows.prologue}</p>
         <h1 id="hero-title" className="hero-title">
-          <span>{DISPLAY.heroTitle[0]}<i aria-hidden="true">↗</i></span>
+          <span>{DISPLAY.heroTitle[0]}<i aria-hidden="true"><ArrowUpRight weight="heavy" /></i></span>
           <span>{DISPLAY.heroTitle[1]}</span>
         </h1>
         <p className="hero-subtitle hero-pitch">
@@ -79,7 +80,7 @@ export function Hero({ onStart }: { onStart(): void }) {
         <ZhihuGate onStart={onStart} startLabel={DISPLAY.start} />
       </div>
       <HeroArtwork />
-      <div className="hero-footnote"><span>人生没有标准答案。</span><span>从毕业那天，走向另一种可能。<span aria-hidden="true">↗</span></span></div>
+      <div className="hero-footnote"><span>人生没有标准答案。</span><span>从毕业那天，走向另一种可能。<span aria-hidden="true"><ArrowUpRight /></span></span></div>
     </section>
   );
 }
@@ -422,7 +423,7 @@ export function Possibilities(props: {
                   </span>
                   <span className="pair-kind">{DISPLAY.possibilityTitles[possibility.kind]}</span>
                   <span className="pair-summary">{possibility.summary}</span>
-                  <span className="pair-foot">看看这种可能 ↗</span>
+                  <span className="pair-foot">看看这种可能 <ArrowUpRight /></span>
                 </button>
               );
             })}
