@@ -437,3 +437,9 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
   .art-offset { bottom: 23px; }
   .art-topline { display: none; }
 }
+
+/* Voluntary Zhihu sign-in: secondary to 开始, never in its way. */
+.zhihu-signin { margin-top: 26px; max-width: 420px; }
+.zhihu-signin .link-button { font-size: 13px; gap: 6px; }
+.zhihu-signin .muted { margin-top: 6px; font-size: 12px; line-height: 1.7; text-wrap: pretty; }
+.zhihu-signin.is-done { margin-top: 26px; font-size: 13px; }

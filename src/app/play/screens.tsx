@@ -17,6 +17,7 @@ import { HeroArtwork } from "./journey";
 import type { Side } from "./field/target";
 import { PLAN_OPTIONS, VALUE_OPTIONS } from "./plans";
 import { GraduationStats } from "./stats";
+import { ZhihuSignIn } from "./zhihu-signin";
 
 export type Async<T> =
   | { status: "idle" }
@@ -79,6 +80,7 @@ export function Hero({ onStart }: { onStart(): void }) {
           <button className="btn btn-primary" onClick={onStart}>{DISPLAY.start}<span aria-hidden="true">↗</span></button>
           <span className="hero-duration">约 8–10 分钟</span>
         </div>
+        <ZhihuSignIn />
       </div>
       <HeroArtwork />
       <div className="hero-footnote"><span>人生没有标准答案。</span><span>从毕业那天，走向另一种可能。<span aria-hidden="true">↗</span></span></div>
