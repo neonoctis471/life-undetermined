@@ -654,7 +654,7 @@ export default function PlayPage() {
             <ForkMark />
             <span className="wordmark">{DISPLAY.wordmark}</span>
           </div>
-          <p className="masthead-note">LIFE, UNDETERMINED<span>一场关于选择的人生模拟</span></p>
+          <p className="masthead-note">LIFE, UNDETERMINED<span>{DISPLAY.tagline}</span></p>
           <div className="masthead-right">
             {/* In the masthead rather than the hero, so the source stays one tap away from every screen. */}
             <a className="gh-link" href={REPO_URL} target="_blank" rel="noopener noreferrer" aria-label="在 GitHub 上查看源码">

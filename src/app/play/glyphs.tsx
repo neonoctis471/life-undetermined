@@ -34,3 +34,15 @@ export function GithubMark() {
     </svg>
   );
 }
+
+/** A drawn cross: the same square-cut stroke the rest of the poster is built from. */
+export function CloseMark() {
+  return (
+    <svg className="glyph-close" viewBox="0 0 100 100" width="1em" height="1em" aria-hidden="true" focusable="false">
+      <g fill="none" stroke="currentColor" strokeWidth={13} strokeLinecap="square">
+        <path d="M24 24 L76 76" />
+        <path d="M76 24 L24 76" />
+      </g>
+    </svg>
+  );
+}

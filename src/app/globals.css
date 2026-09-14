@@ -498,13 +498,22 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
 .journey-open:hover .journey-number { color: var(--blue); }
 .journey-track li[data-openable="true"] { cursor: pointer; }
 
-.recap { width: min(620px, calc(100vw - 32px)); max-height: min(78vh, 760px); padding: 0; border: 2px solid var(--navy); border-radius: 0; background: var(--paper); color: var(--ink-1); overflow: hidden; }
+.recap { width: min(620px, calc(100vw - 32px)); max-height: min(78vh, 760px); padding: 0; border: 2px solid var(--blue); border-radius: 0; background: var(--paper); color: var(--ink-1); overflow: hidden; }
 .recap::backdrop { background: rgb(10 22 51 / .55); }
 .recap-panel { display: flex; flex-direction: column; max-height: inherit; }
-.recap-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 22px 14px; border-bottom: 2px solid var(--navy); }
-.recap-head .eyebrow { margin: 0; }
-.recap-close { flex: 0 0 auto; width: 36px; height: 36px; border: 1.5px solid var(--rule-strong); border-radius: 50%; background: none; color: var(--blue); font-size: 20px; line-height: 1; }
-.recap-close:hover { background: var(--ice); }
+/*
+ * The header wears the work's blue, and the chip inverts to stay readable on
+ * it. Nothing here is rounded: the poster is built from square cuts and skewed
+ * blocks, and a soft circle in the middle of it read as borrowed from a
+ * different product.
+ */
+.recap-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 18px; background: var(--blue); }
+.recap-head .eyebrow { margin: 0; color: var(--paper); }
+.recap-head .eyebrow::before { background: var(--paper); }
+.recap-head .chapter-chip { color: var(--blue); background: var(--paper); }
+.recap-close { flex: 0 0 auto; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 2px solid var(--paper); border-radius: 0; background: none; color: var(--paper); font-size: 13px; transition: background .18s, color .18s, transform .18s; }
+.recap-close:hover { background: var(--paper); color: var(--blue); transform: rotate(90deg); }
+.recap-close .glyph-close { display: block; }
 .recap-body { padding: 18px 22px 4px; overflow-y: auto; }
 .recap-body section { margin-bottom: 18px; }
 .recap-body h4 { margin: 0 0 6px; font-size: 12px; font-weight: 750; letter-spacing: .04em; color: var(--blue); }
@@ -512,7 +521,7 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
 .recap-foot { padding: 12px 22px 18px; border-top: 1px solid var(--rule); font-size: 11px; }
 @media (max-width: 480px) {
   .recap { width: calc(100vw - 24px); max-height: 82vh; }
-  .recap-head { padding: 16px 16px 12px; }
+  .recap-head { padding: 13px 14px; }
   .recap-body { padding: 15px 16px 2px; }
   .recap-foot { padding: 11px 16px 15px; }
 }

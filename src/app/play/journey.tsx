@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } fr
 
 import type { RecapSection } from "@/game/flow";
 
-import { ArrowUpRight } from "./glyphs";
+import { ArrowUpRight, CloseMark } from "./glyphs";
 
 const STOPS = ["毕业那天", "第 8 天", "第 7 个月", "第 4 年", "五年以后", "两段人生"];
 
@@ -79,7 +79,7 @@ export function JourneyTrack({
                 {STOPS[open]}
               </p>
               <button type="button" className="recap-close" onClick={() => setOpen(null)} aria-label="关闭回顾">
-                <span aria-hidden="true">×</span>
+                <CloseMark />
               </button>
             </header>
             <div className="recap-body">

@@ -10,6 +10,7 @@ export const REPO_URL = "https://github.com/neonoctis471/life-undetermined";
 
 export const DISPLAY = {
   wordmark: "人生未定式",
+  tagline: "关于毕业后的一切未知",
   heroTitle: ["人生", "未定式"],
   // The hero renders this with its own line break and emphasis markup.
   heroSubtitle: "把知乎网友真实走过的人生经验，变成你可以亲自验证、对照和讨论的平行人生。",
