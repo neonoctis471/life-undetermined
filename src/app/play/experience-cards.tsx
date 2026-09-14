@@ -172,12 +172,15 @@ export function ExperiencePanel({ experience }: { experience?: Async<ExperienceR
   const supplementOnly = ready?.source === "AI_SUPPLEMENT";
   const zhihuCards = (ready?.cards ?? []).filter((card): card is ZhihuCard => card.provenance !== "AI_SUPPLEMENT");
   return (
-    <div className="experience">
+    <div className="experience experience-inline">
       <button className="link-button has-strip" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <AuthorStrip cards={zhihuCards} />
-        {supplementOnly ? "看看几个参考思路" : "看看知乎朋友们是怎么选择的"}
-        {zhihuCards.length > 0 && <span className="muted strip-count">{zhihuCards.length} 位过来人</span>}
-        <span aria-hidden="true">{open ? "−" : "＋"}</span>
+        {/* The faces, the label and the count wrap together; the toggle keeps its own side. */}
+        <span className="entry-main">
+          <AuthorStrip cards={zhihuCards} />
+          <span className="entry-label">{supplementOnly ? "看看几个参考思路" : "看看知乎朋友们是怎么选择的"}</span>
+          {zhihuCards.length > 0 && <span className="muted strip-count">{zhihuCards.length} 位过来人</span>}
+        </span>
+        <span className="entry-toggle" aria-hidden="true">{open ? "−" : "＋"}</span>
       </button>
       {open &&
         (experience.status === "pending" ? (

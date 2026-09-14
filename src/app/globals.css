@@ -187,11 +187,22 @@ textarea::placeholder { color: #747f99; font-size: 13px; }
 .tally { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--rule); }
 .tally-list { padding: 0; margin: 0; list-style: none; font-size: 14px; line-height: 1.9; }
 .tally-list li { margin-bottom: 8px; }
-.unresolved { grid-column: 1 / -1; padding-top: 20px; border-top: 1px dashed var(--rule-strong); }
+.unresolved { grid-column: 1 / -1; padding: 16px 20px 18px; border-left: 4px solid var(--rule-strong); background: var(--ice); }
+.unresolved .record-title { color: var(--ink-2); }
 .unresolved .muted { margin: 6px 0; }
 .reflection { margin-top: 34px; padding-top: 24px; border-top: 2px solid var(--navy); }
-.reflection-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 42px; padding: 0; list-style: none; }
-.reflection-list li { padding: 12px 0 20px; border-bottom: 1px solid var(--rule); }
+/*
+ * Banded rows. A dozen short entries stacked on one flat white ran together;
+ * the tint is the palette's own pale blue, alternating two cells at a time so
+ * the band matches the two-column grid. The gap closes to zero horizontally so
+ * a band reads as one strip rather than two tinted boxes, and an odd last entry
+ * spans the full width so the strip is never half-painted.
+ */
+.reflection-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 0; list-style: none; }
+.reflection-list li { padding: 14px 20px 18px; border-bottom: 1px solid var(--rule); }
+.reflection-list li:nth-child(4n+1), .reflection-list li:nth-child(4n+2) { background: var(--ice); }
+.reflection-list li:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.reflection .record-title { padding-left: 20px; }
 .reflection-kind { display: flex; gap: 8px; align-items: center; margin: 0 0 8px; color: var(--blue); font-size: 11px; font-weight: 700; }
 .reflection-text { margin: 0; font-size: 16px; line-height: 1.9; }
 .reflection-mark { width: 6px; height: 6px; background: var(--blue); transform: rotate(45deg); }
@@ -358,6 +369,13 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
   .outcome-story .scene { font-size: 16px; }
   .reflection { margin-top: 25px; }
   .reflection-list { gap: 0; }
+  /*
+   * One column now, so a band is one entry rather than a pair of them. Both
+   * rules carry a :nth-child so they can actually override the two-column
+   * banding above — a plain `li` reset is a weight lower and loses to it.
+   */
+  .reflection-list li:nth-child(even) { background: none; }
+  .reflection-list li:nth-child(odd) { background: var(--ice); }
   .reflection-text { font-size: 15px; }
   .option-row { flex-wrap: wrap; gap: 14px; }
   .option-row .btn { margin-left: auto; }
@@ -525,3 +543,21 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
   .recap-body { padding: 15px 16px 2px; }
   .recap-foot { padding: 11px 16px 15px; }
 }
+
+/*
+ * The Zhihu entry inside a situation. It used to be one underlined line among
+ * paragraphs of the same weight and lost every contest for attention it was in
+ * — and it is the one thing on the page that is not ours. It now sits in a
+ * filled block with the work's blue edge, still above the choices and still
+ * closed by default, but no longer possible to walk past without seeing.
+ */
+.experience-inline { margin: 24px 0 6px; border: 2px solid var(--blue); background: var(--ice); }
+.experience-inline > .link-button { display: flex; align-items: center; flex-wrap: nowrap; gap: 12px; width: 100%; padding: 13px 16px; border-bottom: 0; font-size: 14px; }
+.experience-inline > .link-button:hover { padding-bottom: 13px; background: #dee8fb; }
+/* The label may wrap onto a second line; the toggle stays on its own side, centred. */
+.entry-main { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 10px; flex: 1 1 auto; min-width: 0; }
+.entry-main::before { content: ""; flex: 0 0 auto; width: 16px; height: 6px; background: var(--blue); transform: skewX(-25deg); }
+.entry-label { font-weight: 750; }
+.entry-toggle { flex: 0 0 auto; font-size: 19px; line-height: 1; color: var(--blue); }
+.experience-inline .card { margin: 0 14px 14px; }
+.experience-inline .muted { padding: 0 16px 14px; }
