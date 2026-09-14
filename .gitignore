@@ -13,3 +13,6 @@ coverage/
 .superpowers/
 *.tsbuildinfo
 .vercel/
+
+# Throwaway browser profiles and screenshots from scripts/dev
+.tmp/
