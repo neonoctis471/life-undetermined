@@ -26,7 +26,7 @@ export function buildUnderstandIntentPrompt(input: {
     "3. 只整理玩家说过或明显隐含的内容，不要编造玩家没提到的经历、家庭条件或数字。",
     `4. ${DATA_BOUNDARY}`,
     "只输出一个 JSON 对象，结构如下：",
-    '{"summary": "用第二人称“你”复述玩家的打算，2-4 句，60-160 字", "goals": ["玩家想做成的事，1-4 条"], "priorities": ["玩家眼下最看重的东西，1-4 条"], "constraints": ["玩家提到或明显隐含的限制，0-4 条"], "currentActions": ["玩家接下来最先会做的一件具体小事，1-2 条"], "searchQueries": ["1-2 个概括玩家眼下处境的知乎提问式搜索词"]}',
+    '{"summary": "用第二人称“你”复述玩家的打算，2-4 句，60-160 字", "goals": ["玩家想做成的事，1-4 条"], "priorities": ["玩家眼下最看重的东西，1-4 条"], "constraints": ["玩家提到或明显隐含的限制，0-4 条"], "currentActions": ["玩家接下来可以先做的一件具体小事，给 3-4 条互不相同、都能立刻上手的做法，玩家会从中挑一条开始"], "searchQueries": ["1-2 个概括玩家眼下处境的知乎提问式搜索词"]}',
     "数组里每一条不超过 20 个字。",
     SEARCH_QUERY_GUIDE,
   ].join("\n");

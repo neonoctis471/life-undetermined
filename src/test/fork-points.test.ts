@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Decision, Intent, ResolvedOutcome, Situation } from "@/contracts/game";
-import { chapterRecaps, factsInSnapshot, forkPointAt, forkPoints } from "@/game/flow";
+import { chapterRecaps, factsInSnapshot, forkPointAt, forkPoints, openingChoiceLine } from "@/game/flow";
 import { buildKeyDecisionSnapshot } from "@/game/key-snapshot";
 import { GameStateSchema } from "@/game-state/contracts";
 import { createInitialGameState, transitionGameState, type EngineDependencies } from "@/game-state/engine";
@@ -299,5 +299,30 @@ describe("looking back at a stop on the track", () => {
     for (const sections of chapterRecaps(state)) {
       for (const section of sections ?? []) expect(section.lines.length).toBeGreaterThan(0);
     }
+  });
+});
+
+/*
+ * The opening move is the one thing the player decides before the first chapter
+ * exists, and it reaches the model through the same previousChoices list the
+ * later chapters use. For DAY_8 that list is otherwise empty.
+ */
+describe("the opening move handed to the first chapter", () => {
+  it("is written in the same shape as a later chapter's choice", () => {
+    expect(openingChoiceLine("先拍一条试水视频发出去")).toBe("毕业后第一件事：先拍一条试水视频发出去");
+  });
+
+  it("trims what the player typed", () => {
+    expect(openingChoiceLine("  先把店里的日常摸清楚  ")).toBe("毕业后第一件事：先把店里的日常摸清楚");
+  });
+
+  it("stays inside the 160-character field even when the player writes an essay", () => {
+    const line = openingChoiceLine("拍视频".repeat(80));
+    expect(line.length).toBeLessThanOrEqual(160);
+  });
+
+  it("returns nothing for blank input, so no empty line is sent", () => {
+    expect(openingChoiceLine("   ")).toBe("");
+    expect(openingChoiceLine("")).toBe("");
   });
 });

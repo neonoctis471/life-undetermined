@@ -17,6 +17,7 @@ export const DISPLAY = {
   start: "开始我的五年",
   intentTitle: "毕业了，你准备怎样开始？",
   confirmTitle: "我理解的是这样，对吗？",
+  openingTitle: "先从哪件事开始？",
   chapterTitles: {
     DAY_8: "生活，开始展开。",
     MONTH_7: "事情有了后果。",

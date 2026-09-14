@@ -22,6 +22,7 @@ import {
   forkPoints,
   isKeyDecisionTurn,
   nextChapter,
+  openingChoiceLine,
   previousChoices,
   toIntentCandidate,
   type ForkPoint,
@@ -58,6 +59,7 @@ import { ADVICE_INTENT, ADVICE_QUERIES, planIntents } from "./plans";
 import {
   Hero,
   IntentConfirm,
+  OpeningMove,
   IntentInput,
   OutcomePending,
   OutcomeView,
@@ -80,12 +82,13 @@ const REWIND_MIN_MS = 7_000;
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Which act the player is in, for the colophon. Presentation only. */
-function actIndex(state: GameState, viewingNextChapter: boolean): number {
+function actIndex(state: GameState, viewingNextChapter: boolean, choosingOpeningMove = false): number {
   switch (state.currentStage) {
     case "CREATED":
       return 0;
     case "INTENT_CONFIRMED":
-      return 1;
+      // The opening move is still 毕业那天; the first act starts once it is picked.
+      return choosingOpeningMove ? 0 : 1;
     case "SITUATION_READY":
     case "DECISION_RECORDED":
       return state.situations.length;
@@ -113,6 +116,13 @@ export default function PlayPage() {
   const [planExperience, setPlanExperience] = useState<Async<ExperienceResponseData>>(IDLE);
   const [outcome, setOutcome] = useState<Async<Timed<ResolveOutcomeResponseData>>>(IDLE);
   const [showPossibilities, setShowPossibilities] = useState(false);
+  /*
+   * The one concrete thing the player decides to do first. null means they have
+   * not chosen yet and the opening-move screen is showing. It deliberately
+   * lives here rather than in GameState: it is a prompt input, not a Fact, and
+   * the engine has nothing to say about it.
+   */
+  const [openingMove, setOpeningMove] = useState<string | null>(null);
   const [fiveYears, setFiveYears] = useState<LifeSlot>(IDLE);
   const [accelerating, setAccelerating] = useState(false);
   const [forkPicking, setForkPicking] = useState(false);
@@ -153,16 +163,24 @@ export default function PlayPage() {
   const setSlot = (chapter: MainChapter, value: Async<Timed<GenerateSituationResponseData>>) =>
     setSituations((current) => ({ ...current, [chapter]: value }));
 
-  const startSituation = (chapter: MainChapter, state: GameState, intent: IntentCandidate) => {
+  const startSituation = (chapter: MainChapter, state: GameState, intent: IntentCandidate, choices?: string[]) => {
     const token = session.current;
     setSlot(chapter, { status: "pending" });
-    requestSituation({ chapter, intent, facts: state.facts, previousChoices: previousChoices(state) })
+    requestSituation({ chapter, intent, facts: state.facts, previousChoices: choices ?? previousChoices(state) })
       .then((value) => {
         if (session.current === token) setSlot(chapter, { status: "ready", value });
       })
       .catch((error: unknown) => {
         if (session.current === token) setSlot(chapter, { status: "error", message: errorMessage(error) });
       });
+  };
+
+  /** Records the opening move and writes the first chapter around it. */
+  const pickOpeningMove = (action: string, intent: IntentCandidate) => {
+    const chosen = action.trim();
+    setOpeningMove(chosen);
+    const line = openingChoiceLine(chosen);
+    startSituation("DAY_8", getGameStore().getState(), intent, line ? [line] : []);
   };
 
   const ensureSituation = (chapter: MainChapter) => {
@@ -248,8 +266,6 @@ export default function PlayPage() {
       const value = await requestUnderstandIntent({ rawText: text, selectedPlans: intents, selectedValues: values });
       if (session.current !== token) return;
       setUnderstanding({ status: "ready", value });
-      // Prefetch DAY_8 while the player reads "我理解的是这样，对吗？".
-      startSituation("DAY_8", getGameStore().getState(), value.data.result.intent);
     } catch (error) {
       if (session.current === token) setUnderstanding({ status: "error", message: errorMessage(error) });
     }
@@ -260,16 +276,21 @@ export default function PlayPage() {
     setUnderstanding(IDLE);
     setSituations({});
     setExperiences({});
+    setOpeningMove(null);
   };
 
   const confirmIntent = () => {
     if (understanding.status !== "ready" || getGameStore().getState().currentStage !== "CREATED") return;
     const { intent: candidate, searchQueries } = understanding.value.data.result;
     if (!dispatch({ type: "CONFIRM_INTENT", intent: { ...candidate, confirmedAt: engineDeps.now() } })) return;
-    const slot = situations.DAY_8;
-    if (!slot || slot.status === "idle" || slot.status === "error") {
-      startSituation("DAY_8", getGameStore().getState(), candidate);
-    }
+    /*
+     * With only one opening move on offer there is nothing to choose between,
+     * so the screen is skipped and the first chapter starts on it directly.
+     * That is what an AI fallback produces — buildFallbackIntentDraft returns a
+     * single generic action — and a one-item menu would be a worse experience
+     * than no menu at all.
+     */
+    if (candidate.currentActions.length < 2) pickOpeningMove(candidate.currentActions[0] ?? "", candidate);
     planQueries.current = searchQueries;
     // Prefetch real experiences for the first chapter once the Intent is confirmed.
     startExperience("DAY_8", {
@@ -461,6 +482,7 @@ export default function PlayPage() {
     setUnderstanding(IDLE);
     setSituations({});
     setExperiences({});
+    setOpeningMove(null);
     // Without this the next game opens showing the previous game's Zhihu advice.
     setPlanExperience(IDLE);
     setOutcome(IDLE);
@@ -478,7 +500,8 @@ export default function PlayPage() {
   const stage = gameState.currentStage;
   const chapter = nextChapter(gameState);
   const nextSlot = chapter ? situations[chapter] : undefined;
-  const firstStep = gameState.intent?.currentActions[0];
+  // The waiting animation names the move the player actually picked.
+  const firstStep = openingMove ?? gameState.intent?.currentActions[0];
   const latestOutcomeId = gameState.outcomes.at(-1)?.id;
   const outcomeBadge =
     outcome.status === "ready" && outcome.value.data.result.id === latestOutcomeId
@@ -507,8 +530,8 @@ export default function PlayPage() {
               : nextSlot?.status === "pending" && (stage === "INTENT_CONFIRMED" || showPossibilities)
                 ? "situation"
                 : "none";
-  const currentAct = Math.min(actIndex(gameState, showPossibilities), 5);
-  const viewKey = `${stage}-${showHero}-${understanding.status === "ready"}-${showPossibilities}-${accelerating}-${forkPicking}-${parallel.status === "pending"}`;
+  const currentAct = Math.min(actIndex(gameState, showPossibilities, openingMove === null), 5);
+  const viewKey = `${stage}-${showHero}-${understanding.status === "ready"}-${openingMove === null}-${showPossibilities}-${accelerating}-${forkPicking}-${parallel.status === "pending"}`;
 
   let body: React.ReactNode;
   switch (stage) {
@@ -547,7 +570,9 @@ export default function PlayPage() {
         );
       break;
     case "INTENT_CONFIRMED":
-      body = (
+      body = openingMove === null && gameState.intent ? (
+        <OpeningMove options={gameState.intent.currentActions} onPick={(action: string) => pickOpeningMove(action, toIntentCandidate(gameState.intent!))} />
+      ) : (
         <Possibilities
           chapter="DAY_8"
           slot={situations.DAY_8 ?? IDLE}

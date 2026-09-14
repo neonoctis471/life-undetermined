@@ -37,6 +37,17 @@ export function previousChoices(state: GameState): string[] {
   });
 }
 
+/*
+ * The opening move, written as one of the same "when: what I chose" lines. It
+ * goes into GENERATE_SITUATION's previousChoices, which the prompt renders
+ * under 「玩家之前做过的决定：」 — for the first chapter that list is otherwise
+ * empty, and the situation would be written as if the player had done nothing.
+ */
+export function openingChoiceLine(action: string): string {
+  const trimmed = action.trim();
+  return trimmed ? clip(`毕业后第一件事：${trimmed}`, 150) : "";
+}
+
 /** YEAR_4 carries the key Decision unless an earlier Decision already does. */
 export function isKeyDecisionTurn(state: GameState, situation: Situation): boolean {
   return situation.chapter === "YEAR_4" && state.keyDecisionSnapshot === null;

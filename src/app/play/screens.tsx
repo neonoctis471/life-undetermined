@@ -85,6 +85,61 @@ export function Hero({ onStart }: { onStart(): void }) {
   );
 }
 
+/*
+ * Between confirming the intent and meeting the first two possibilities. The
+ * player had just said what they wanted and was handed two abstract turns of
+ * fate a second later, with no say in what they actually did first.
+ *
+ * The options are the model's own reading of the player's plan, so they are
+ * already specific to this person; picking one is what the first chapter is
+ * then written around. Nothing here touches the game state — the stage stays
+ * INTENT_CONFIRMED until a possibility is chosen, exactly as before.
+ */
+export function OpeningMove({ options, onPick }: { options: readonly string[]; onPick(action: string): void }) {
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customText, setCustomText] = useState("");
+  return (
+    <section className="screen">
+      <ScreenHead eyebrow={DISPLAY.eyebrows.prologue} title={DISPLAY.openingTitle} level={2} />
+      <p className="lede">这几件事你迟早都要面对，但总得先从一件开始。第一幕会从你选的这件事讲起。</p>
+      <div className="act-list">
+        {options.map((option, index) => (
+          <button key={`${index}-${option}`} className="act-opt panel panel-lift" onClick={() => onPick(option)}>
+            <span className="act-n">{String(index + 1).padStart(2, "0")}</span>
+            <span className="act-label">{option}</span>
+            <span className="ink-dot" />
+          </button>
+        ))}
+        <button
+          className="act-opt panel panel-lift"
+          aria-pressed={customOpen}
+          onClick={() => setCustomOpen(true)}
+        >
+          <span className="act-n">{String(options.length + 1).padStart(2, "0")}</span>
+          <span className="act-label">我有别的打算</span>
+          <span className="ink-dot" />
+        </button>
+      </div>
+      {customOpen && (
+        <div className="card">
+          <textarea
+            value={customText}
+            maxLength={60}
+            placeholder="写下你打算先做的那件事"
+            aria-label="我有别的打算"
+            onChange={(event) => setCustomText(event.target.value)}
+          />
+          <div className="row">
+            <button className="btn btn-primary" disabled={!customText.trim()} onClick={() => onPick(customText.trim())}>
+              就这么做
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Screens 2-3: plan input and AI understanding
 // ---------------------------------------------------------------------------
@@ -252,7 +307,7 @@ export function IntentConfirm(props: {
         <div>
           <ConfirmBlock title="正在并行的计划" items={intent.goals} />
           <ConfirmBlock title="现在最在意" items={intent.priorities} />
-          <ConfirmBlock title="先做的第一步" items={intent.currentActions} numbered />
+          <ConfirmBlock title="可以先做的第一步" items={intent.currentActions} numbered />
           <ConfirmBlock title="还没有确定" items={intent.constraints} />
         </div>
       </div>
