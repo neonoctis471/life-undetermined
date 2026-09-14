@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AiProvider } from "@/ai/provider";
 import { RELEVANCE_THRESHOLD, buildExperienceCards, judgeZhihuCards, normalizeSupplementCard } from "@/zhihu/cards";
 import { SUPPLEMENT_LABEL, type ZhihuEvidence } from "@/zhihu/contracts";
-import { toEvidence, type ZhihuSearchProvider } from "@/zhihu/provider";
+import { ZhihuUnavailableError, toEvidence, type ZhihuSearchProvider } from "@/zhihu/provider";
 import { intentKeywords, selectEvidence } from "@/zhihu/rank";
 
 const intent = {
@@ -341,5 +341,68 @@ describe("when the keyword gate finds nothing", () => {
       1,
     );
     expect(selected.map(({ id }) => id)).toEqual(["on"]);
+  });
+});
+
+/*
+ * The service limits requests in flight, not requests made: firing the queries
+ * together had a third of every lookup refused with 「rate limit exceeded」,
+ * which is what turned whole blocks into an AI card.
+ */
+describe("how the searches are spent", () => {
+  const ai: AiProvider = { completeJson: async () => '{"cards":[{"index":1,"relevance":9}]}' };
+  const threeQueries = { intent, situation: null, queries: ["查询一", "查询二", "查询三"] };
+
+  function recordingProvider(perQuery: number) {
+    const state = { inFlight: 0, peak: 0, calls: [] as string[] };
+    const provider: ZhihuSearchProvider = {
+      search: async (query) => {
+        state.calls.push(query);
+        state.inFlight += 1;
+        state.peak = Math.max(state.peak, state.inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        state.inFlight -= 1;
+        return Array.from({ length: perQuery }, (_, index) =>
+          evidence({ id: `${query}-${index}`, title: `${query} 的第 ${index} 条`, url: `https://www.zhihu.com/q/${query}${index}`, authorName: `作者${query}${index}` }),
+        );
+      },
+    };
+    return { provider, state };
+  }
+
+  it("never has two searches in flight at once", async () => {
+    const { provider, state } = recordingProvider(2);
+    await buildExperienceCards(threeQueries, { zhihu: provider, ai, createId });
+    expect(state.peak).toBe(1);
+  });
+
+  it("stops early once there is enough to choose from", async () => {
+    const { provider, state } = recordingProvider(10);
+    const { stats } = await buildExperienceCards(threeQueries, { zhihu: provider, ai, createId });
+    // Two full result sets clear the bar, so the third query is never spent.
+    expect(state.calls).toEqual(["查询一", "查询二"]);
+    expect(stats.zhihuCalls).toBe(2);
+  });
+
+  it("spends every query when the earlier ones come back thin", async () => {
+    const { provider, state } = recordingProvider(1);
+    const { stats } = await buildExperienceCards(threeQueries, { zhihu: provider, ai, createId });
+    expect(state.calls).toEqual(["查询一", "查询二", "查询三"]);
+    expect(stats.zhihuCalls).toBe(3);
+  });
+
+  it("carries on past a refused query instead of giving up on the block", async () => {
+    const calls: string[] = [];
+    const flaky: ZhihuSearchProvider = {
+      search: async (query) => {
+        calls.push(query);
+        if (query === "查询一") throw new ZhihuUnavailableError("rate limit exceeded");
+        return [evidence({ id: query, title: `${query} 的结果`, url: `https://www.zhihu.com/q/${query}` })];
+      },
+    };
+    const { data, stats } = await buildExperienceCards(threeQueries, { zhihu: flaky, ai, createId });
+    expect(calls).toEqual(["查询一", "查询二", "查询三"]);
+    expect(stats).toMatchObject({ zhihuCalls: 3, zhihuFailures: 1 });
+    expect(data.source).toBe("ZHIHU");
   });
 });

@@ -26,6 +26,12 @@ import { intentKeywords, selectEvidence } from "./rank";
 export const RELEVANCE_THRESHOLD = 6;
 
 const SEARCH_TIMEOUT_MS = 6_000;
+/*
+ * Enough material to pick three cards from. Reached after one full result set
+ * plus a little, so a second query is normally the last one spent and a third
+ * only goes out when the earlier ones came back thin.
+ */
+const ENOUGH_CANDIDATES = 12;
 /** One attempt only: cards are optional and every retry costs relay quota. */
 const AI_TIMEOUT_MS = 15_000;
 const EVIDENCE_PROMPT_CHARS = 1_200;
@@ -60,19 +66,34 @@ export async function buildExperienceCards(
   deps: ExperienceDependencies,
 ): Promise<{ data: ExperienceResponseData; stats: ExperienceStats }> {
   const stats: ExperienceStats = {
-    zhihuCalls: input.queries.length,
+    zhihuCalls: 0,
     zhihuFailures: 0,
     aiCalls: 0,
     candidates: 0,
     kept: 0,
     relevant: 0,
   };
-  const settled = await Promise.allSettled(input.queries.map((query) => deps.zhihu.search(query, SEARCH_TIMEOUT_MS)));
-  const items = settled.flatMap((result) => {
-    if (result.status === "fulfilled") return result.value;
-    stats.zhihuFailures += 1;
-    return [];
-  });
+  /*
+   * One after another, not all at once. The service limits how many requests
+   * may be in flight rather than how many are made: twelve fired together came
+   * back as two results and ten 「rate limit exceeded」, while nine run in
+   * sequence all succeeded. Running them in parallel was spending a third of
+   * every lookup on a request certain to be refused — which is what turned
+   * whole blocks into 「AI 参考思路」.
+   *
+   * Three searches in sequence cost about 1.5 seconds, and the early exit
+   * means the third is only spent when it is actually needed.
+   */
+  const items: ZhihuEvidence[] = [];
+  for (const query of input.queries) {
+    if (items.length >= ENOUGH_CANDIDATES) break;
+    stats.zhihuCalls += 1;
+    try {
+      items.push(...(await deps.zhihu.search(query, SEARCH_TIMEOUT_MS)));
+    } catch {
+      stats.zhihuFailures += 1;
+    }
+  }
   stats.candidates = items.length;
   const evidence = selectEvidence(items, intentKeywords(input.intent));
   stats.kept = evidence.length;
