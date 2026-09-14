@@ -88,16 +88,30 @@ export function selectEvidence(items: readonly ZhihuEvidence[], keywords: readon
    * repeated, and the point of showing several is that they disagree.
    */
   const seenAuthors = new Set<string>();
-  const kept = items.filter((item) => {
+  const usable = items.filter((item) => {
     const link = item.url.split("?")[0]!;
     if (seenLinks.has(link) || seenTitles.has(item.title) || seenAuthors.has(item.authorName)) return false;
     if (item.text.length < MIN_TEXT_LENGTH) return false;
-    const haystack = `${item.title}\n${item.text}`.toLowerCase();
-    if (!keywords.some((keyword) => haystack.includes(keyword.toLowerCase()))) return false;
     seenLinks.add(link);
     seenTitles.add(item.title);
     seenAuthors.add(item.authorName);
     return true;
   });
-  return kept.sort((a, b) => qualityScore(b) - qualityScore(a)).slice(0, limit);
+
+  const onTopic = usable.filter((item) => {
+    const haystack = `${item.title}
+${item.text}`.toLowerCase();
+    return keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
+  });
+
+  /*
+   * The keyword gate is a preference, not a wall. It is built from a fixed
+   * lexicon of graduates' plans, so a search plainly about the player's own
+   * situation can still miss every term in it — and then a block with ten real
+   * answers to choose from showed none of them. Whatever survives is scored for
+   * relevance by the model afterwards, which is the gate that can actually
+   * read; this one only decides who goes first.
+   */
+  const pool = onTopic.length > 0 ? onTopic : usable;
+  return pool.sort((a, b) => qualityScore(b) - qualityScore(a)).slice(0, limit);
 }

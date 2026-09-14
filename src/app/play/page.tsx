@@ -27,6 +27,7 @@ import {
   type ForkPoint,
 } from "@/game/flow";
 import { buildKeyDecisionSnapshot } from "@/game/key-snapshot";
+import { intentQueries, topUpQueries } from "@/zhihu/queries";
 import type { ExperienceRequest, ExperienceResponseData } from "@/zhihu/contracts";
 
 import {
@@ -122,6 +123,13 @@ export default function PlayPage() {
   const [notice, setNotice] = useState<string | null>(null);
   // Bumped on reset/edit so late responses from an abandoned run are ignored.
   const session = useRef(0);
+  /*
+   * The broad queries the model wrote for this player's intent. Kept so every
+   * later lookup can top its own queries up with them: the search occasionally
+   * answers a good query with nothing, and a situation lookup that sent one
+   * query lost the whole block to a single blip.
+   */
+  const planQueries = useRef<string[]>([]);
   const fiveYearsRequest = useRef<Promise<Timed<SimulateLifeResponseData>> | null>(null);
 
   if (!gameState) {
@@ -262,8 +270,14 @@ export default function PlayPage() {
     if (!slot || slot.status === "idle" || slot.status === "error") {
       startSituation("DAY_8", getGameStore().getState(), candidate);
     }
+    planQueries.current = searchQueries;
     // Prefetch real experiences for the first chapter once the Intent is confirmed.
-    startExperience("DAY_8", { intent: candidate, situation: null, queries: searchQueries });
+    startExperience("DAY_8", {
+      intent: candidate,
+      situation: null,
+      // The first chapter is prefetched here, so it needs the same top-up as the later ones.
+      queries: topUpQueries(searchQueries, intentQueries(candidate)),
+    });
   };
 
   // Screens 4-9 -------------------------------------------------------------
@@ -291,7 +305,8 @@ export default function PlayPage() {
           concreteContext: variant.concreteContext.slice(0, 1_200),
           tensions: variant.tensions,
         },
-        queries: candidate.searchQueries[kind],
+        // Its own queries first, then the intent's, so one empty answer cannot empty the block.
+        queries: topUpQueries(candidate.searchQueries[kind], [...planQueries.current, ...intentQueries(state.intent)]),
       });
     }
   };

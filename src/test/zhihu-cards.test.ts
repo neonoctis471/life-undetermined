@@ -317,3 +317,29 @@ describe("who gets to speak", () => {
     expect(selected.map(({ authorName }) => authorName)).toEqual(["千山和万水", "另一个人"]);
   });
 });
+
+describe("when the keyword gate finds nothing", () => {
+  it("falls back to the search's own results rather than showing an empty block", () => {
+    const selected = selectEvidence(
+      [
+        evidence({ id: "a", title: "如何准备作品集?", url: "https://www.zhihu.com/q/a", text: "我用三周做完了第一版作品集。".repeat(10), voteUpCount: 90 }),
+        evidence({ id: "b", title: "作品集要放几个项目?", url: "https://www.zhihu.com/q/b", text: "项目贵精不贵多，三个足够。".repeat(10), voteUpCount: 12 }),
+      ],
+      // Nothing in the fixed lexicon matches a question about 作品集.
+      ["考研", "考公"],
+    );
+    expect(selected.map(({ id }) => id)).toEqual(["a", "b"]);
+  });
+
+  it("still puts keyword matches first when there are any", () => {
+    const selected = selectEvidence(
+      [
+        evidence({ id: "off", title: "如何准备作品集?", url: "https://www.zhihu.com/q/a", text: "作品集怎么做。".repeat(20), voteUpCount: 900 }),
+        evidence({ id: "on", title: "要不要回家帮忙?", url: "https://www.zhihu.com/q/b", text: "我回家帮父母看店，也在学剪辑。".repeat(10), voteUpCount: 3 }),
+      ],
+      ["回家", "剪辑"],
+      1,
+    );
+    expect(selected.map(({ id }) => id)).toEqual(["on"]);
+  });
+});
