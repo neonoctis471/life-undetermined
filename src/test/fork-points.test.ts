@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Decision, Intent, ResolvedOutcome, Situation } from "@/contracts/game";
-import { factsInSnapshot, forkPointAt, forkPoints } from "@/game/flow";
+import { chapterRecaps, factsInSnapshot, forkPointAt, forkPoints } from "@/game/flow";
 import { buildKeyDecisionSnapshot } from "@/game/key-snapshot";
 import { GameStateSchema } from "@/game-state/contracts";
 import { createInitialGameState, transitionGameState, type EngineDependencies } from "@/game-state/engine";
@@ -241,5 +241,63 @@ describe("saves written before rewinding was opened up", () => {
     expect(points).toHaveLength(1);
     expect(points[0]!.decision.isKeyDecision).toBe(true);
     expect(points[0]!.situation.timeLabel).toBe("第 4 年");
+  });
+});
+
+/*
+ * Reading a stop again. The journey track is the only way back into what
+ * already happened, so these cover that it offers exactly the stops the player
+ * has reached, that each one carries that turn's own situation, choice and
+ * outcome, and that an empty list never becomes an empty heading.
+ */
+describe("looking back at a stop on the track", () => {
+  it("offers nothing before the player has written anything down", () => {
+    const recaps = chapterRecaps(createInitialGameState(makeDeps()));
+    expect(recaps).toHaveLength(6);
+    expect(recaps.every((entry) => entry === null)).toBe(true);
+  });
+
+  it("opens the first stop as soon as the intent is confirmed, and no others", () => {
+    const deps = makeDeps();
+    const state = transitionGameState(createInitialGameState(deps), { type: "CONFIRM_INTENT", intent }, deps);
+    const recaps = chapterRecaps(state);
+    expect(recaps.map((entry) => entry !== null)).toEqual([true, false, false, false, false, false]);
+    expect(recaps[0]?.[0]).toEqual({ heading: "你当时写下的打算", lines: [intent.rawText] });
+  });
+
+  it("opens one stop per turn played, and leaves the two endings shut", () => {
+    const { state } = playThreeLoops();
+    expect(chapterRecaps(state).map((entry) => entry !== null)).toEqual([true, true, true, true, false, false]);
+  });
+
+  it("gives each stop its own turn, not the latest one", () => {
+    const { state } = playThreeLoops();
+    const recaps = chapterRecaps(state);
+    for (const [offset, label] of [
+      [0, "第 1 个情境。"],
+      [1, "第 2 个情境。"],
+      [2, "第 3 个情境。"],
+    ] as const) {
+      const sections = recaps[offset + 1];
+      expect(sections?.find(({ heading }) => heading === "当时的处境")?.lines).toEqual([label]);
+      expect(sections?.find(({ heading }) => heading === "你的选择")?.lines).toEqual([ACTIONS[offset]]);
+      expect(sections?.find(({ heading }) => heading === "后来发生了")?.lines).toEqual([`第 ${offset + 1} 次的结果。`]);
+    }
+  });
+
+  it("leaves out a heading rather than showing it empty", () => {
+    const { state } = playThreeLoops();
+    const headings = chapterRecaps(state)[1]?.map(({ heading }) => heading) ?? [];
+    expect(headings).toContain("收获");
+    expect(headings).toContain("代价");
+    // The fixture resolves every turn with no unresolved consequences.
+    expect(headings).not.toContain("仍然没有答案的部分");
+  });
+
+  it("never reports a section with no lines in it", () => {
+    const { state } = playThreeLoops();
+    for (const sections of chapterRecaps(state)) {
+      for (const section of sections ?? []) expect(section.lines.length).toBeGreaterThan(0);
+    }
   });
 });

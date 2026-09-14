@@ -15,6 +15,7 @@ import type { GameAction, GameState } from "@/game-state";
 import {
   buildDecision,
   choiceSummaries,
+  chapterRecaps,
   factsInSnapshot,
   forkChoiceSummary,
   forkPointAt,
@@ -672,7 +673,7 @@ export default function PlayPage() {
           {body}
         </main>
         <footer className="colophon">
-          <JourneyTrack current={currentAct} hovered={hovered} waiting={waitingFor !== "none"} />
+          <JourneyTrack current={currentAct} hovered={hovered} waiting={waitingFor !== "none"} recaps={chapterRecaps(gameState)} />
         </footer>
       </div>
     </>

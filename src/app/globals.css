@@ -479,10 +479,40 @@ blockquote { margin: 18px 0; padding: 5px 0 5px 20px; border-left: 3px solid var
 .gh-link { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border: 1.5px solid var(--navy); border-radius: 999px; background: var(--navy); color: white; font-size: 12px; font-weight: 700; text-decoration: none; transition: background .18s, color .18s, transform .18s, box-shadow .18s; }
 .gh-link:hover { background: var(--paper); color: var(--navy); box-shadow: 3px 3px 0 var(--rule); transform: translate(-1px,-1px); }
 .gh-link .glyph-github { font-size: 15px; display: block; }
-/* Narrow phones: the mark alone, so the wordmark and the chapter index keep one line each. */
-@media (max-width: 374px) {
+/*
+ * Phones: the mark alone. The word "GitHub" fits beside 00 / 05 on the hero,
+ * but in the game that slot holds 重新开始 ↺, and then the wordmark and the
+ * restart label both wrap. One consistent icon beats a label that fits on some
+ * screens of the same phone and not others.
+ */
+@media (max-width: 480px) {
   .masthead-right { gap: 12px; }
   /* 40px round, so the only source link on a narrow phone is still a comfortable target. */
   .gh-link { padding: 11px; border-radius: 50%; }
   .gh-label { display: none; }
+}
+
+/* Journey track: every stop already reached can be opened and read again. */
+.journey-open { display: flex; flex-direction: inherit; align-items: inherit; gap: inherit; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.journey-open:hover .journey-stop, .journey-open:focus-visible .journey-stop { text-decoration: underline; text-underline-offset: 3px; }
+.journey-open:hover .journey-number { color: var(--blue); }
+.journey-track li[data-openable="true"] { cursor: pointer; }
+
+.recap { width: min(620px, calc(100vw - 32px)); max-height: min(78vh, 760px); padding: 0; border: 2px solid var(--navy); border-radius: 0; background: var(--paper); color: var(--ink-1); overflow: hidden; }
+.recap::backdrop { background: rgb(10 22 51 / .55); }
+.recap-panel { display: flex; flex-direction: column; max-height: inherit; }
+.recap-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 22px 14px; border-bottom: 2px solid var(--navy); }
+.recap-head .eyebrow { margin: 0; }
+.recap-close { flex: 0 0 auto; width: 36px; height: 36px; border: 1.5px solid var(--rule-strong); border-radius: 50%; background: none; color: var(--blue); font-size: 20px; line-height: 1; }
+.recap-close:hover { background: var(--ice); }
+.recap-body { padding: 18px 22px 4px; overflow-y: auto; }
+.recap-body section { margin-bottom: 18px; }
+.recap-body h4 { margin: 0 0 6px; font-size: 12px; font-weight: 750; letter-spacing: .04em; color: var(--blue); }
+.recap-body p { margin: 0 0 6px; font-size: 14px; line-height: 1.85; }
+.recap-foot { padding: 12px 22px 18px; border-top: 1px solid var(--rule); font-size: 11px; }
+@media (max-width: 480px) {
+  .recap { width: calc(100vw - 24px); max-height: 82vh; }
+  .recap-head { padding: 16px 16px 12px; }
+  .recap-body { padding: 15px 16px 2px; }
+  .recap-foot { padding: 11px 16px 15px; }
 }

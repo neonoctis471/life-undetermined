@@ -144,3 +144,69 @@ export function forkPointAt(state: GameState, index: number): ForkPoint | null {
 export function forkChoiceSummary(point: ForkPoint): ChoiceSummary {
   return { ...summarize(point.decision, point.situation), isKeyDecision: true };
 }
+
+/** One heading and the lines under it, as a recap renders them. */
+export interface RecapSection {
+  heading: string;
+  lines: string[];
+}
+
+const listed = (heading: string, lines: readonly string[]): RecapSection[] =>
+  lines.length > 0 ? [{ heading, lines: [...lines] }] : [];
+
+/*
+ * What each stop on the journey track can show when the player goes back to it.
+ * Purely a read of what already happened — nothing here can change a game.
+ *
+ * By the fourth year almost nobody remembers what they chose on the eighth day,
+ * and the whole point of the ending is comparing two paths; a player who has
+ * forgotten the first one is comparing against nothing.
+ *
+ * The array is always six long and index-aligned with the track. `null` means
+ * that stop has not been reached, and the track leaves it unclickable.
+ */
+export function chapterRecaps(state: GameState): (RecapSection[] | null)[] {
+  const recaps: (RecapSection[] | null)[] = [null, null, null, null, null, null];
+
+  if (state.intent) {
+    recaps[0] = [
+      { heading: "你当时写下的打算", lines: [state.intent.rawText] },
+      ...listed("想做的事", state.intent.goals),
+      ...listed("看重的", state.intent.priorities),
+      ...listed("当时的限制", state.intent.constraints),
+      ...listed("打算迈出的第一步", state.intent.currentActions),
+    ];
+  }
+
+  state.decisions.forEach((decision, index) => {
+    const situation = situationOf(state, decision);
+    if (!situation) return;
+    const outcome = state.outcomes.find((entry) => entry.decisionId === decision.id);
+    recaps[index + 1] = [
+      { heading: "当时的处境", lines: [situation.concreteContext] },
+      { heading: "你的选择", lines: [describeDecisionAction(decision, situation)] },
+      ...(outcome ? [{ heading: "后来发生了", lines: [outcome.narrative] }] : []),
+      ...listed("收获", outcome?.gains ?? []),
+      ...listed("代价", outcome?.costs ?? []),
+      ...listed("仍然没有答案的部分", outcome?.unresolvedConsequences ?? []),
+    ];
+  });
+
+  if (state.fiveYearLife) {
+    recaps[4] = [
+      { heading: "五年后的你", lines: [state.fiveYearLife.currentState] },
+      { heading: "同学聚会上，你会这样说", lines: [state.fiveYearLife.reunionAnswer] },
+      ...listed("这五年留下的", state.fiveYearLife.commemorativeFacts),
+    ];
+  }
+
+  if (state.comparison) {
+    recaps[5] = [
+      ...listed("因为那个决定而不同", state.comparison.changedByDecision),
+      ...listed("两条路都一样", state.comparison.unchanged),
+      ...listed("与你的选择无关", state.comparison.external),
+    ];
+  }
+
+  return recaps;
+}
