@@ -12,10 +12,6 @@
 
 2026 知乎黑客松 · 游戏赛道参赛作品
 
-📄 **[产品说明计划书 → docs/PRODUCT.md](docs/PRODUCT.md)**
-
-🛠 **[项目交接与当前状态 → docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md)**　·　接手开发从这里开始
-
 </div>
 
 ![首屏](docs/screenshots/01-hero.png)
